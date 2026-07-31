@@ -1,0 +1,29 @@
+{
+  "name": "seleksi-labpro-identity-and-authorization-provider",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kevin-wirya/seleksi-labpro-identity-and-authorization-provider.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/kevin-wirya/seleksi-labpro-identity-and-authorization-provider/issues"
+  },
+  "homepage": "https://github.com/kevin-wirya/seleksi-labpro-identity-and-authorization-provider#readme",
+  "devDependencies": {
+    "@types/node": "^26.1.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.2"
+  }
+}
