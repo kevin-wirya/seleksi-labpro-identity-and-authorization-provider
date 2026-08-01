@@ -12,7 +12,40 @@ datasource db {
   provider = "postgresql"
 }
 
-model User {
-  id    String @id @default(uuid())
+enum UserStatus{
+  active 
+  inactive
+}
+
+model User{
+  id String @id @default(uuid())
+  name String 
   email String @unique
+  password_hash String
+  status UserStatus @default(inactive)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  user_groups UserGroup[]
+  @@map("users")
+}
+
+model Group{
+  id String @id @default(uuid())
+  name String @unique
+  description String?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  user_groups UserGroup[]
+  @@map("groups")
+}
+
+model UserGroup{
+  id String @id @default(uuid())
+  user_id String
+  group_id String
+  created_at DateTime @default(now())
+  user User @relation(fields:[user_id],references:[id],onDelete:Cascade)
+  group Group @relation(fields:[group_id],references:[id],onDelete:Cascade)
+  @@unique([user_id,group_id])
+  @@map("user_groups")
 }
