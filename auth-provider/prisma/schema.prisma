@@ -22,6 +22,12 @@ enum ApplicationStatus{
   inactive
 }
 
+enum SessionStatus{
+  active
+  expired
+  revoked
+}
+
 model User{
   id String @id @default(uuid())
   name String 
@@ -31,6 +37,9 @@ model User{
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
   user_groups UserGroup[]
+  sso_sessions SsoSession[]
+  authorization_codes AuthorizationCode[]
+  access_tokens AccessToken[]
   @@map("users")
 }
 
@@ -68,6 +77,8 @@ model Application{
   updated_at DateTime @updatedAt
   redirect_uris ApplicationRedirectUri[]
   group_policies ApplicationGroupPolicy[]
+  authorization_codes AuthorizationCode[]
+  access_tokens AccessToken[]
   @@map("applications")
 }
 
@@ -90,4 +101,69 @@ model ApplicationGroupPolicy{
   group Group @relation(fields:[group_id],references:[id],onDelete:Cascade)
   @@unique([application_id,group_id,effect])
   @@map("application_group_policies")
+}
+
+model SsoSession{
+  id String @id @default(uuid())
+  user_id String
+  session_token_hash String
+  status SessionStatus @default(active)
+  created_at DateTime @default(now())
+  expires_at DateTime
+  last_activity_at DateTime?
+  revoked_at DateTime?
+  revoke_reason String?
+  ip_address String?
+  user_agent String?
+  user User @relation(fields:[user_id],references:[id],onDelete:Cascade)
+  authorization_codes AuthorizationCode[]
+  access_tokens AccessToken[]
+  @@map("sso_sessions")
+}
+
+model AuthorizationCode{
+  id String @id @default(uuid())
+  code_hash String
+  user_id String
+  application_id String
+  sso_session_id String
+  redirect_uri String
+  created_at DateTime @default(now())
+  expires_at DateTime
+  used_at DateTime?
+  user User @relation(fields:[user_id],references:[id],onDelete:Cascade)
+  application Application @relation(fields:[application_id],references:[id],onDelete:Cascade)
+  sso_session SsoSession @relation(fields:[sso_session_id],references:[id],onDelete:Cascade)
+  @@map("authorization_codes")
+}
+
+model AccessToken{
+  id String @id @default(uuid())
+  token_hash String
+  user_id String
+  application_id String
+  sso_session_id String
+  scopes String?
+  status SessionStatus @default(active)
+  issued_at DateTime @default(now())
+  expires_at DateTime
+  revoked_at DateTime?
+  user User @relation(fields:[user_id],references:[id],onDelete:Cascade)
+  application Application @relation(fields:[application_id],references:[id],onDelete:Cascade)
+  sso_session SsoSession @relation(fields:[sso_session_id],references:[id],onDelete:Cascade)
+  @@map("access_tokens")
+}
+
+model AuditLog{
+  id String @id @default(uuid())
+  event_type String
+  actor_id String?
+  user_id String?
+  application_id String?
+  session_id String?
+  result String
+  metadata String?
+  ip_address String?
+  created_at DateTime @default(now())
+  @@map("audit_logs")
 }
