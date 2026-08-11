@@ -28,6 +28,14 @@ enum SessionStatus{
   revoked
 }
 
+enum EventStatus{
+  pending
+  processing
+  succeeded
+  retrying
+  failed
+}
+
 model User{
   id String @id @default(uuid())
   name String 
@@ -166,4 +174,66 @@ model AuditLog{
   ip_address String?
   created_at DateTime @default(now())
   @@map("audit_logs")
+}
+
+model LocalSession{
+  id String @id @default(uuid())
+  session_token_hash String
+  external_user_id String
+  central_session_id String
+  application_id String
+  status SessionStatus @default(active)
+  created_at DateTime @default(now())
+  expires_at DateTime
+  last_activity_at DateTime?
+  revoked_at DateTime?
+  revoke_reason String?
+  @@map("local_sessions")
+}
+
+model ProfileCache{
+  external_user_id String @id
+  name String
+  email String
+  groups String? // JSON
+  synced_at DateTime @default(now())
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  @@map("profile_cache")
+}
+
+model ProcessedEvent{
+  event_id String @id
+  event_type String 
+  processed_at DateTime @default(now())
+  result String
+  @@map("processed_events")
+}
+
+model Event{
+  id String @id @default(uuid())
+  event_type String
+  user_id String
+  central_session_id String?
+  application_id String?
+  payload String // JSON
+  status String @default("pending")
+  created_at DateTime @default(now())
+  published_at DateTime?
+  deliveries EventDelivery[]
+  @@map("events")
+}
+
+model EventDelivery{
+  id String @id @default(uuid())
+  event_id String
+  application_id String
+  status EventStatus @default(pending)
+  attempt_count Int @default(0)
+  last_attempt_at DateTime?
+  next_retry_at DateTime?
+  processed_at DateTime?
+  last_error String?
+  event Event @relation(fields:[event_id],references:[id],onDelete:Cascade)
+  @@map("event_deliveries")
 }
