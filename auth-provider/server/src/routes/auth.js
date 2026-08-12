@@ -205,6 +205,81 @@ router.get('/authorize',async(req,res)=>{
     }
 });
 
+// POST /api/auth/token
+router.post('/token',async(req,res)=>{
+    const prisma=req.prisma;
+    const{grant_type,code,client_id,redirect_uri}=req.body;
+    if(grant_type!=='authorization_code'||!code||!client_id||!redirect_uri){
+        return res.status(400).json({success:false,error:'grant_type must be authorization_code, and code, client_id, redirect_uri are required'});
+    }
+    try{
+        const code_hash=crypto.createHash('sha256').update(code).digest('hex');
+        const authCode=await prisma.authorizationCode.findFirst({
+            where:{code_hash},
+            include:{application:true},
+        });
+        if(!authCode||authCode.application.client_id!==client_id){
+            return res.status(400).json({success:false,error:'Invalid authorization code or client_id'});
+        }
+        if(authCode.redirect_uri!==redirect_uri){
+            return res.status(400).json({success:false,error:'Invalid redirect_uri'});
+        }
+        if(authCode.expires_at<new Date()){
+            return res.status(400).json({success:false,error:'Authorization code has expired'});
+        }
+        if(authCode.used_at){
+            await prisma.auditLog.create({
+                data:{
+                    event_type:'code_replay_attempt',
+                    actor_id:authCode.user_id,
+                    user_id:authCode.user_id,
+                    application_id:authCode.application_id,
+                    session_id:authCode.sso_session_id,
+                    result:'denied',
+                    metadata:JSON.stringify({reason:'Attempted to reuse authorization code'}),
+                    ip_address:req.ip||req.headers['x-forwarded-for']||null,
+                }
+            });
+            return res.status(400).json({success:false,error:'Authorization code already used'});
+        }
+        await prisma.authorizationCode.update({
+            where:{id:authCode.id},
+            data:{used_at:new Date()},
+        });
+        const rawAccessToken=crypto.randomBytes(32).toString('hex');
+        const token_hash=crypto.createHash('sha256').update(rawAccessToken).digest('hex');
+        const expires_at=new Date(Date.now()+60*60*1000); // access token 1 jam
+        await prisma.accessToken.create({
+            data:{
+                token_hash,
+                user_id:authCode.user_id,
+                application_id:authCode.application_id,
+                sso_session_id:authCode.sso_session_id,
+                status:'active',
+                expires_at,
+            }
+        });
+        await prisma.auditLog.create({
+            data:{
+                event_type:'token_issued',
+                actor_id:authCode.user_id,
+                user_id:authCode.user_id,
+                application_id:authCode.application_id,
+                session_id:authCode.sso_session_id,
+                result:'granted',
+                ip_address:req.ip||req.headers['x-forwarded-for']||null,
+            }
+        });
+        res.json({
+            access_token:rawAccessToken,
+            token_type:'Bearer',
+            expires_in:3600,
+        });
+    }catch(error){
+        res.status(500).json({success:false,error:error.message});
+    }
+});
+
 // POST /api/auth/logout
 router.post('/logout',async(req,res)=>{
     const prisma=req.prisma;
