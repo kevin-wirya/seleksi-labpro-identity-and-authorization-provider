@@ -7,6 +7,7 @@ const {Pool}=require('pg');
 
 const usersRoute=require('./routes/users');
 const groupsRoute=require('./routes/groups');
+const applicationsRoute=require('./routes/applications');
 const app=express();
 const PORT=process.env.PORT||4000;
 const connectionString=process.env.DATABASE_URL||'postgresql://admin:secret@localhost:5432/sso_db?schema=public';
@@ -23,6 +24,7 @@ app.use((req,res,next)=>{
 });
 app.use('/api/admin/users',usersRoute);
 app.use('/api/admin/groups',groupsRoute);
+app.use('/api/admin/applications',applicationsRoute);
 app.get('/health',(req,res)=>{
     res.json({status:'ok',timestamp:new Date()});
 });
