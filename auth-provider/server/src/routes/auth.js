@@ -280,6 +280,55 @@ router.post('/token',async(req,res)=>{
     }
 });
 
+// GET /api/auth/userinfo
+router.get('/userinfo',async(req,res)=>{
+    const prisma=req.prisma;
+    const authHeader=req.headers.authorization;
+    if(!authHeader||!authHeader.startsWith('Bearer ')){
+        return res.status(401).json({success:false,error:'Missing or invalid Authorization header'});
+    }
+    const rawAccessToken=authHeader.split(' ')[1];
+    try{
+        const token_hash=crypto.createHash('sha256').update(rawAccessToken).digest('hex');
+        const tokenRecord=await prisma.accessToken.findFirst({
+            where:{
+                token_hash,
+                status:'active',
+                expires_at:{gt:new Date()},
+            },
+            include:{
+                user:{
+                    select:{
+                        id:true,
+                        name:true,
+                        email:true,
+                        status:true,
+                        user_groups:{
+                            include:{
+                                group:true,
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        if(!tokenRecord||!tokenRecord.user||tokenRecord.user.status!=='active'){
+            return res.status(401).json({success:false,error:'Invalid or expired access token'});
+        }
+        const user=tokenRecord.user;
+        const groups=user.user_groups.map(ug=>ug.group.name);
+        res.json({
+            sub:user.id,
+            name:user.name,
+            email:user.email,
+            status:user.status,
+            groups,
+        });
+    }catch(error){
+        res.status(500).json({success:false,error:error.message});
+    }
+});
+
 // POST /api/auth/logout
 router.post('/logout',async(req,res)=>{
     const prisma=req.prisma;
