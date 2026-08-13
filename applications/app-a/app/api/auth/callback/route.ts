@@ -29,10 +29,39 @@ export async function GET(request:NextRequest){
     });
     const userinfo=await userinfoRes.json();
     if(!userinfoRes.ok) return NextResponse.json({success:false,error:userinfo.error||'Failed to fetch userinfo'},{status:400});
-    return NextResponse.json({
-        success:true,
-        message:'Back-channel token exchange and userinfo fetching successful',
-        tokens:tokenData,
-        userinfo,
+    // profile cache
+    await prisma.profileCache.upsert({
+        where:{external_user_id:userinfo.sub},
+        update:{
+            name:userinfo.name,
+            email:userinfo.email,
+            groups:JSON.stringify(userinfo.groups||[]),
+            synced_at:new Date(),
+        },
+        create:{
+            external_user_id:userinfo.sub,
+            name:userinfo.name,
+            email:userinfo.email,
+            groups:JSON.stringify(userinfo.groups||[]),
+        },
     });
+    // local session
+    const rawLocalToken=crypto.randomBytes(32).toString('hex');
+    const session_token_hash=crypto.createHash('sha256').update(rawLocalToken).digest('hex');
+    const expires_at=new Date(Date.now()+24*60*60*1000);
+    const appRecord=await prisma.application.findUnique({where:{client_id:'app-a'}});
+    await prisma.localSession.create({
+        data:{
+            session_token_hash,
+            external_user_id:userinfo.sub,
+            central_session_id:userinfo.sub,
+            application_id:appRecord?appRecord.id:'app-a',
+            status:'active',
+            expires_at,
+        },
+    });
+    // cookie
+    const response=NextResponse.redirect(new URL('/',request.url));
+    response.cookies.set('app_a_session',rawLocalToken,{httpOnly:true,path:'/',maxAge:86400});
+    return response;
 }
