@@ -1,4 +1,6 @@
 import {NextRequest,NextResponse} from 'next/server';
+import crypto from 'node:crypto';
+import {prisma} from '@/lib/prisma';
 
 export async function GET(request:NextRequest){
     const searchParams=request.nextUrl.searchParams;
