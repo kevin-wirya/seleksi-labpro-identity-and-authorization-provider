@@ -17,7 +17,7 @@ const pool=new Pool({connectionString});
 const adapter=new PrismaPg(pool);
 const prisma=new PrismaClient({adapter});
 
-app.use(cors());
+app.use(cors({origin:true,credentials:true}));
 app.use(express.json());
 app.use(cookieParser());
 app.use((req,res,next)=>{
