@@ -15,22 +15,22 @@ async function startWorker(){
         const conn=await amqp.connect(rabbitUrl);
         const channel=await conn.createChannel();
         await channel.assertQueue('identity_events',{durable:true});
+        await channel.assertQueue('identity_events_dlq',{durable:true});
         console.log('👷 [Sync Worker] Connected to RabbitMQ. Listening on identity_events...');
         channel.consume('identity_events',async(msg)=>{
             if(!msg)return;
             try{
                 const eventData=JSON.parse(msg.content.toString());
-                console.log(`📥 [Sync Worker] Received event: ${eventData.id} (${eventData.event_type}) for User: ${eventData.user_id}`);
-
-                const activeApps=await prisma.application.findMany({
-                    where:{status:'active'},
-                });
-
+                console.log(`📥 [Sync Worker] Processing event: ${eventData.id} (${eventData.event_type})`);
+                const activeApps=await prisma.application.findMany({where:{status:'active'}});
+                let allSuccess=true;
                 for(const app of activeApps){
-                    if(!app.logout_notification_url)continue;
+                    const webhookUrl=app.logout_notification_url;
+                    if(!webhookUrl)continue;
+                    let isSuccess=false;
+                    let errorMsg=null;
                     try{
-                        console.log(`🚀 [Sync Worker] Broadcasting webhook to ${app.name} (${app.logout_notification_url})...`);
-                        const res=await fetch(app.logout_notification_url,{
+                        const res=await fetch(webhookUrl,{
                             method:'POST',
                             headers:{'Content-Type':'application/json'},
                             body:JSON.stringify({
@@ -42,15 +42,40 @@ async function startWorker(){
                                 timestamp:eventData.created_at,
                             }),
                         });
-                        console.log(`✅ [Sync Worker] Webhook response from ${app.name}: ${res.status}`);
+                        if(res.ok){
+                            isSuccess=true;
+                            console.log(`✅ Webhook delivered to ${app.name} (${res.status})`);
+                        }else{
+                            errorMsg=`HTTP ${res.status}`;
+                            allSuccess=false;
+                            console.warn(`⚠️ Webhook to ${app.name} returned status ${res.status}`);
+                        }
                     }catch(err){
-                        console.error(`❌ [Sync Worker] Webhook failed for ${app.name}:`,err.message);
+                        errorMsg=err.message;
+                        allSuccess=false;
+                        console.error(`❌ Webhook to ${app.name} failed:`,err.message);
                     }
+                    await prisma.eventDelivery.create({
+                        data:{
+                            event_id:eventData.id,
+                            application_id:app.id,
+                            status:isSuccess?'succeeded':'failed',
+                            attempt_count:1,
+                            last_attempt_at:new Date(),
+                            last_error:errorMsg,
+                        },
+                    });
                 }
-                channel.ack(msg);
+                if(allSuccess){
+                    channel.ack(msg);
+                }else{
+                    console.log(`⚠️ Event ${eventData.id} had delivery failures, sending to DLQ`);
+                    channel.sendToQueue('identity_events_dlq',msg.content,{persistent:true});
+                    channel.ack(msg);
+                }
             }catch(err){
-                console.error('❌ [Sync Worker] Error processing message:',err.message);
-                channel.nack(msg,false,true); 
+                console.error('❌ [Sync Worker] Unexpected error:',err.message);
+                channel.nack(msg,false,true);
             }
         });
     }catch(err){
