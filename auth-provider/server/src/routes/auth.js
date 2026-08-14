@@ -329,27 +329,46 @@ router.get('/userinfo',async(req,res)=>{
     }
 });
 
-// POST /api/auth/logout
-router.post('/logout',async(req,res)=>{
+// ALL /api/auth/logout
+router.all('/logout',async(req,res)=>{
     const prisma=req.prisma;
     const rawSessionToken=req.cookies?.sso_session;
+    const redirect_uri=req.query?.redirect_uri||req.body?.redirect_uri;
     if(rawSessionToken){
         try{
             const session_token_hash=hashSessionToken(rawSessionToken);
-            await prisma.ssoSession.updateMany({
+            const session=await prisma.ssoSession.findFirst({
                 where:{session_token_hash,status:'active'},
-                data:{
-                    status:'revoked',
-                    revoked_at:new Date(),
-                    revoke_reason:'User logout',
-                },
             });
+            if(session){
+                await prisma.ssoSession.update({
+                    where:{id:session.id},
+                    data:{
+                        status:'revoked',
+                        revoked_at:new Date(),
+                        revoke_reason:'User logged out centrally',
+                    },
+                });
+                await prisma.auditLog.create({
+                    data:{
+                        event_type:'sso_logout',
+                        actor_id:session.user_id,
+                        user_id:session.user_id,
+                        session_id:session.id,
+                        result:'success',
+                        ip_address:req.ip||req.headers['x-forwarded-for']||null,
+                    },
+                });
+            }
         }catch(e){
-            // ignore error
+            console.error('Logout error:',e);
         }
     }
     res.clearCookie('sso_session',{path:'/'});
-    res.json({success:true,message:'Logout successful'});
+    if(redirect_uri){
+        return res.redirect(302,redirect_uri);
+    }
+    res.json({success:true,message:'Central SSO session revoked successfully'});
 });
 
 module.exports=router;
