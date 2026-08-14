@@ -31,5 +31,75 @@ services:
       timeout: 10s
       retries: 3
 
+  auth-provider:
+    build:
+      context: ./auth-provider/server
+    container_name: auth_provider_server
+    ports:
+      - "4000:4000"
+    environment:
+      PORT: 4000
+      DATABASE_URL: postgresql://admin:secret@db:5432/sso_db?schema=public
+      RABBITMQ_URL: amqp://guest:guest@broker:5672
+    depends_on:
+      db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+
+  outbox-publisher:
+    build:
+      context: ./auth-provider/server
+    container_name: outbox_publisher
+    command: node src/publisher.js
+    environment:
+      DATABASE_URL: postgresql://admin:secret@db:5432/sso_db?schema=public
+      RABBITMQ_URL: amqp://guest:guest@broker:5672
+    depends_on:
+      db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+
+  sync-worker:
+    build:
+      context: ./auth-provider/server
+    container_name: sync_worker
+    command: node src/worker.js
+    environment:
+      DATABASE_URL: postgresql://admin:secret@db:5432/sso_db?schema=public
+      RABBITMQ_URL: amqp://guest:guest@broker:5672
+    depends_on:
+      db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+
+  app-a:
+    build:
+      context: ./applications/app-a
+    container_name: app_a
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: 3001
+      DATABASE_URL: postgresql://admin:secret@db:5432/sso_db?schema=public
+    depends_on:
+      db:
+        condition: service_healthy
+
+  app-b:
+    build:
+      context: ./applications/app-b
+    container_name: app_b
+    ports:
+      - "3002:3002"
+    environment:
+      PORT: 3002
+      DATABASE_URL: postgresql://admin:secret@db:5432/sso_db?schema=public
+    depends_on:
+      db:
+        condition: service_healthy
+
 volumes:
   pgdata:
