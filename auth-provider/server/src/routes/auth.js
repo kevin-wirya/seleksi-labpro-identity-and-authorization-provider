@@ -341,27 +341,44 @@ router.all('/logout',async(req,res)=>{
                 where:{session_token_hash,status:'active'},
             });
             if(session){
-                await prisma.ssoSession.update({
-                    where:{id:session.id},
-                    data:{
-                        status:'revoked',
-                        revoked_at:new Date(),
-                        revoke_reason:'User logged out centrally',
-                    },
-                });
-                await prisma.auditLog.create({
-                    data:{
-                        event_type:'sso_logout',
-                        actor_id:session.user_id,
-                        user_id:session.user_id,
-                        session_id:session.id,
-                        result:'success',
-                        ip_address:req.ip||req.headers['x-forwarded-for']||null,
-                    },
+                await prisma.$transaction(async(tx)=>{
+                    await tx.ssoSession.update({
+                        where:{id:session.id},
+                        data:{
+                            status:'revoked',
+                            revoked_at:new Date(),
+                            revoke_reason:'User logged out centrally',
+                        },
+                    });
+                    await tx.auditLog.create({
+                        data:{
+                            event_type:'sso_logout',
+                            actor_id:session.user_id,
+                            user_id:session.user_id,
+                            session_id:session.id,
+                            result:'success',
+                            ip_address:req.ip||req.headers['x-forwarded-for']||null,
+                        },
+                    });
+                    await tx.event.create({
+                        data:{
+                            event_type:'SessionRevoked',
+                            user_id:session.user_id,
+                            central_session_id:session.id,
+                            payload:JSON.stringify({
+                                event_type:'SessionRevoked',
+                                user_id:session.user_id,
+                                central_session_id:session.id,
+                                revoked_at:new Date().toISOString(),
+                                reason:'User logged out centrally',
+                            }),
+                            status:'pending',
+                        },
+                    });
                 });
             }
         }catch(e){
-            console.error('Logout error:',e);
+            console.error('Logout outbox transaction error:',e);
         }
     }
     res.clearCookie('sso_session',{path:'/'});

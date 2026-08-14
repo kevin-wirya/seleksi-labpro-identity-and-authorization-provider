@@ -98,10 +98,27 @@ router.put('/:id',async(req,res)=>{
         if(email)updateData.email=email;
         if(status)updateData.status=status;
         if(password)updateData.password_hash=hashPassword(password);
-        const updatedUser=await prisma.user.update({
-            where:{id},
-            data:updateData,
-            select:{id:true,name:true,email:true,status:true,updated_at:true},
+        const updatedUser=await prisma.$transaction(async(tx)=>{
+            const user=await tx.user.update({
+                where:{id},
+                data:updateData,
+                select:{id:true,name:true,email:true,status:true,updated_at:true},
+            });
+            if(password||status==='inactive'){
+                await tx.event.create({
+                    data:{
+                        event_type:password?'PasswordChanged':'UserUpdated',
+                        user_id:id,
+                        payload:JSON.stringify({
+                            event_type:password?'PasswordChanged':'UserUpdated',
+                            user_id:id,
+                            updated_at:new Date().toISOString(),
+                        }),
+                        status:'pending',
+                    },
+                });
+            }
+            return user;
         });
         res.json({success:true,data:updatedUser});
     }catch(error){

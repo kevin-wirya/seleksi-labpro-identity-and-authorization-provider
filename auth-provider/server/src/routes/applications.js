@@ -123,21 +123,38 @@ router.post('/:id/policies',async(req,res)=>{
     }
     const policyEffect=effect||'allow';
     try{
-        const policy=await prisma.applicationGroupPolicy.upsert({
-            where:{
-                application_id_group_id_effect:{
+        const policy=await prisma.$transaction(async(tx)=>{
+            const pol=await tx.applicationGroupPolicy.upsert({
+                where:{
+                    application_id_group_id_effect:{
+                        application_id:id,
+                        group_id,
+                        effect:policyEffect,
+                    },
+                },
+                update:{},
+                create:{
                     application_id:id,
                     group_id,
                     effect:policyEffect,
                 },
-            },
-            update:{},
-            create:{
-                application_id:id,
-                group_id,
-                effect:policyEffect,
-            },
-            include:{group:true},
+                include:{group:true},
+            });
+            await tx.event.create({
+                data:{
+                    event_type:'PolicyUpdated',
+                    user_id:'system',
+                    application_id:id,
+                    payload:JSON.stringify({
+                        event_type:'PolicyUpdated',
+                        application_id:id,
+                        group_id,
+                        effect:policyEffect,
+                    }),
+                    status:'pending',
+                },
+            });
+            return pol;
         });
         res.json({success:true,data:policy});
     }catch(error){
