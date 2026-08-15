@@ -1,8 +1,8 @@
-const express=require('express');
+import express, { Request, Response } from 'express';
 const router=express.Router();
 
 // GET /api/admin/applications
-router.get('/',async(req,res)=>{
+router.get('/',async(req: any,res: Response)=>{
     const prisma=req.prisma;
     try{
         const apps=await prisma.application.findMany({
@@ -15,13 +15,13 @@ router.get('/',async(req,res)=>{
             orderBy:{created_at:'desc'},
         });
         res.json({success:true,data:apps});
-    }catch(error){
+    }catch(error: any){
         res.status(500).json({success:false,error:error.message});
     }
 });
 
 // POST /api/admin/applications
-router.post('/',async(req,res)=>{
+router.post('/',async(req: any,res: Response)=>{
     const prisma=req.prisma;
     const{name,client_id,launch_url,logout_notification_url,status}=req.body;
     if(!name||!client_id||!logout_notification_url){
@@ -45,13 +45,13 @@ router.post('/',async(req,res)=>{
             },
         });
         res.status(201).json({success:true,data:app});
-    }catch(error){
+    }catch(error: any){
         res.status(500).json({success:false,error:error.message});
     }
 });
 
 // PUT /api/admin/applications/:id
-router.put('/:id',async(req,res)=>{
+router.put('/:id',async(req: any,res: Response)=>{
     const prisma=req.prisma;
     const{id}=req.params;
     const{name,launch_url,logout_notification_url,status}=req.body;
@@ -61,25 +61,25 @@ router.put('/:id',async(req,res)=>{
             data:{name,launch_url,logout_notification_url,status},
         });
         res.json({success:true,data:app});
-    }catch(error){
+    }catch(error: any){
         res.status(500).json({success:false,error:error.message});
     }
 });
 
 // DELETE /api/admin/applications/:id
-router.delete('/:id',async(req,res)=>{
+router.delete('/:id',async(req: any,res: Response)=>{
     const prisma=req.prisma;
     const{id}=req.params;
     try{
         await prisma.application.delete({where:{id}});
         res.json({success:true,message:'Application deleted successfully'});
-    }catch(error){
+    }catch(error: any){
         res.status(500).json({success:false,error:error.message});
     }
 });
 
 // POST /api/admin/applications/:id/redirect-uris
-router.post('/:id/redirect-uris',async(req,res)=>{
+router.post('/:id/redirect-uris',async(req: any,res: Response)=>{
     const prisma=req.prisma;
     const{id}=req.params;
     const{redirect_uri}=req.body;
@@ -96,25 +96,25 @@ router.post('/:id/redirect-uris',async(req,res)=>{
             data:{application_id:id,redirect_uri},
         });
         res.status(201).json({success:true,data:uri});
-    }catch(error){
+    }catch(error: any){
         res.status(500).json({success:false,error:error.message});
     }
 });
 
 // DELETE /api/admin/applications/:id/redirect-uris/:uriId
-router.delete('/:id/redirect-uris/:uriId',async(req,res)=>{
+router.delete('/:id/redirect-uris/:uriId',async(req: any,res: Response)=>{
     const prisma=req.prisma;
     const{uriId}=req.params;
     try{
         await prisma.applicationRedirectUri.delete({where:{id:uriId}});
         res.json({success:true,message:'Redirect URI deleted successfully'});
-    }catch(error){
+    }catch(error: any){
         res.status(500).json({success:false,error:error.message});
     }
 });
 
 // POST /api/admin/applications/:id/policies
-router.post('/:id/policies',async(req,res)=>{
+router.post('/:id/policies',async(req: any,res: Response)=>{
     const prisma=req.prisma;
     const{id}=req.params;
     const{group_id,effect}=req.body;
@@ -123,7 +123,7 @@ router.post('/:id/policies',async(req,res)=>{
     }
     const policyEffect=effect||'allow';
     try{
-        const policy=await prisma.$transaction(async(tx)=>{
+        const policy=await prisma.$transaction(async(tx: any)=>{
             const pol=await tx.applicationGroupPolicy.upsert({
                 where:{
                     application_id_group_id_effect:{
@@ -157,21 +157,21 @@ router.post('/:id/policies',async(req,res)=>{
             return pol;
         });
         res.json({success:true,data:policy});
-    }catch(error){
+    }catch(error: any){
         res.status(500).json({success:false,error:error.message});
     }
 });
 
 // DELETE /api/admin/applications/:id/policies/:policyId
-router.delete('/:id/policies/:policyId',async(req,res)=>{
+router.delete('/:id/policies/:policyId',async(req: any,res: Response)=>{
     const prisma=req.prisma;
     const{policyId}=req.params;
     try{
         await prisma.applicationGroupPolicy.delete({where:{id:policyId}});
         res.json({success:true,message:'Group policy deleted successfully'});
-    }catch(error){
+    }catch(error: any){
         res.status(500).json({success:false,error:error.message});
     }
 });
 
-module.exports=router;
+export default router;

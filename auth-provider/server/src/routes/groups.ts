@@ -1,8 +1,8 @@
-const express=require('express');
+import express, { Request, Response } from 'express';
 const router=express.Router();
 
 // GET /api/admin/groups
-router.get('/',async(req,res)=>{
+router.get('/',async(req: any,res: Response)=>{
     const prisma=req.prisma;
     try{
         const groups=await prisma.group.findMany({
@@ -14,13 +14,13 @@ router.get('/',async(req,res)=>{
             orderBy:{name:'asc'},
         });
         res.json({success:true,data:groups});
-    }catch(error){
+    }catch(error: any){
         res.status(500).json({success:false,error:error.message});
     }
 });
 
 // POST /api/admin/groups
-router.post('/',async(req,res)=>{
+router.post('/',async(req: any,res: Response)=>{
     const prisma=req.prisma;
     const{name,description}=req.body;
     if(!name){
@@ -34,13 +34,13 @@ router.post('/',async(req,res)=>{
             data:{name,description},
         });
         res.status(201).json({success:true,data:group});
-    }catch(error){
+    }catch(error: any){
         res.status(500).json({success:false,error:error.message});
     }
 });
 
 // PUT /api/admin/groups/:id
-router.put('/:id',async(req,res)=>{
+router.put('/:id',async(req: any,res: Response)=>{
     const prisma=req.prisma;
     const{id}=req.params;
     const{name,description}=req.body;
@@ -50,25 +50,25 @@ router.put('/:id',async(req,res)=>{
             data:{name,description},
         });
         res.json({success:true,data:group});
-    }catch(error){
+    }catch(error: any){
         res.status(500).json({success:false,error:error.message});
     }
 });
 
 // DELETE /api/admin/groups/:id
-router.delete('/:id',async(req,res)=>{
+router.delete('/:id',async(req: any,res: Response)=>{
     const prisma=req.prisma;
     const{id}=req.params;
     try{
         await prisma.group.delete({where:{id}});
         res.json({success:true,message:'Group deleted successfully'});
-    }catch(error){
+    }catch(error: any){
         res.status(500).json({success:false,error:error.message});
     }
 });
 
 // POST /api/admin/groups/assign
-router.post('/assign',async(req,res)=>{
+router.post('/assign',async(req: any,res: Response)=>{
     const prisma=req.prisma;
     const{user_id,group_id}=req.body;
     if(!user_id||!group_id){
@@ -84,13 +84,13 @@ router.post('/assign',async(req,res)=>{
             include:{user:true,group:true},
         });
         res.json({success:true,data:userGroup});
-    }catch(error){
+    }catch(error: any){
         res.status(500).json({success:false,error:error.message});
     }
 });
 
 // DELETE /api/admin/groups/assign
-router.delete('/assign',async(req,res)=>{
+router.delete('/assign',async(req: any,res: Response)=>{
     const prisma=req.prisma;
     const{user_id,group_id}=req.body;
     if(!user_id||!group_id){
@@ -103,9 +103,9 @@ router.delete('/assign',async(req,res)=>{
             },
         });
         res.json({success:true,message:'User removed from group'});
-    }catch(error){
+    }catch(error: any){
         res.status(500).json({success:false,error:error.message});
     }
 });
 
-module.exports=router;
+export default router;

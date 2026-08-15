@@ -1,9 +1,9 @@
-const express=require('express');
-const {hashPassword}=require('../utils/hash');
+import express, { Request, Response } from 'express';
+import { hashPassword } from '../utils/hash';
 const router=express.Router();
 
 // GET /api/admin/users
-router.get('/',async(req,res)=>{
+router.get('/',async(req: any,res: Response)=>{
     const prisma=req.prisma;
     try{
         const users=await prisma.user.findMany({
@@ -23,13 +23,13 @@ router.get('/',async(req,res)=>{
             orderBy:{created_at:'desc'},
         });
         res.json({success:true,data:users});
-    }catch(error){
+    }catch(error: any){
         res.status(500).json({success:false,error:error.message});
     }
 });
 
 // POST /api/admin/users
-router.post('/',async(req,res)=>{
+router.post('/',async(req: any,res: Response)=>{
     const prisma=req.prisma;
     const{name,email,password,status,group_ids}=req.body;
     if(!name||!email||!password){
@@ -47,7 +47,7 @@ router.post('/',async(req,res)=>{
                 password_hash,
                 status:status||"active",
                 user_groups:Array.isArray(group_ids)?{
-                    create:group_ids.map(groupId=>({group_id:groupId}))
+                    create:group_ids.map((groupId: string)=>({group_id:groupId}))
                 }:undefined,
             },
             select:{
@@ -62,13 +62,13 @@ router.post('/',async(req,res)=>{
             },
         });
         res.status(201).json({success:true,data:user});
-    }catch(error){
+    }catch(error: any){
         res.status(500).json({success:false,error:error.message});
     }
 });
 
 // PATCH /api/admin/users/:id/status
-router.patch('/:id/status',async(req,res)=>{
+router.patch('/:id/status',async(req: any,res: Response)=>{
     const prisma=req.prisma;
     const{id}=req.params;
     const{status}=req.body;
@@ -82,23 +82,23 @@ router.patch('/:id/status',async(req,res)=>{
             select:{id:true,name:true,email:true,status:true},
         });
         res.json({success:true,data:updatedUser});
-    }catch(error){
+    }catch(error: any){
         res.status(500).json({success:false,error:error.message});
     }
 });
 
 // PUT /api/admin/users/:id
-router.put('/:id',async(req,res)=>{
+router.put('/:id',async(req: any,res: Response)=>{
     const prisma=req.prisma;
     const{id}=req.params;
     const{name,email,password,status}=req.body;
     try{
-        const updateData={};
+        const updateData: any={};
         if(name)updateData.name=name;
         if(email)updateData.email=email;
         if(status)updateData.status=status;
         if(password)updateData.password_hash=hashPassword(password);
-        const updatedUser=await prisma.$transaction(async(tx)=>{
+        const updatedUser=await prisma.$transaction(async(tx: any)=>{
             const user=await tx.user.update({
                 where:{id},
                 data:updateData,
@@ -121,9 +121,9 @@ router.put('/:id',async(req,res)=>{
             return user;
         });
         res.json({success:true,data:updatedUser});
-    }catch(error){
+    }catch(error: any){
         res.status(500).json({success:false,error:error.message});
     }
 });
 
-module.exports=router;
+export default router;
