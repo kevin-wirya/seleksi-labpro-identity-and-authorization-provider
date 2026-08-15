@@ -96,21 +96,21 @@ router.get('/ui',(req: Request,res: Response)=>{
     <title>Auth Provider - Real-Time Observability Dashboard</title>
     <style>
         *{box-sizing:border-box;margin:0;padding:0;}
-        body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,Cantarell,sans-serif;background:#0f172a;color:#f8fafc;padding:24px;}
-        .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #334155;}
-        .title{font-size:24px;font-weight:700;color:#38bdf8;display:flex;align-items:center;gap:10px;}
+        body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,Cantarell,sans-serif;background:#000000;color:#f8fafc;padding:24px;}
+        .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #1f1f23;}
+        .title{font-size:24px;font-weight:700;color:#ffffff;display:flex;align-items:center;gap:10px;}
         .badge{padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;}
         .badge-active{background:#166534;color:#4ade80;border:1px solid #22c55e;}
         .badge-offline{background:#991b1b;color:#fca5a5;border:1px solid #ef4444;}
         .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-bottom:24px;}
-        .card{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:20px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);}
-        .card-title{font-size:13px;color:#94a3b8;font-weight:600;text-transform:uppercase;margin-bottom:8px;}
+        .card{background:#121215;border:1px solid #222226;border-radius:12px;padding:20px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.5);}
+        .card-title{font-size:13px;color:#a1a1aa;font-weight:600;text-transform:uppercase;margin-bottom:8px;}
         .card-value{font-size:28px;font-weight:800;color:#f8fafc;}
-        .card-sub{font-size:12px;color:#64748b;margin-top:6px;}
+        .card-sub{font-size:12px;color:#71717a;margin-top:6px;}
         .status-dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:6px;}
         .dot-green{background:#22c55e;box-shadow:0 0 8px #22c55e;}
         .dot-red{background:#ef4444;box-shadow:0 0 8px #ef4444;}
-        .section-title{font-size:16px;font-weight:600;color:#cbd5e1;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+        .section-title{font-size:16px;font-weight:600;color:#e4e4e7;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
         .live-indicator{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:#4ade80;}
         .pulse{width:8px;height:8px;border-radius:50%;background:#4ade80;animation:pulse 1.5s infinite;}
         @keyframes pulse{0%{transform:scale(0.95);box-shadow:0 0 0 0 rgba(74,222,128,0.7);}70%{transform:scale(1);box-shadow:0 0 0 8px rgba(74,222,128,0);}100%{transform:scale(0.95);box-shadow:0 0 0 0 rgba(74,222,128,0);}}
@@ -145,7 +145,7 @@ router.get('/ui',(req: Request,res: Response)=>{
         </div>
     </div>
 
-    <div class="section-title">⚡ USE Metrics (Utilization & Queue Depth)</div>
+    <div class="section-title">⚡ USE Metrics (Utilization, Saturation, Errors)</div>
     <div class="grid">
         <div class="card">
             <div class="card-title">RabbitMQ Queue Depth</div>

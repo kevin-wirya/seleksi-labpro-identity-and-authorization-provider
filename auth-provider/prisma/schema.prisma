@@ -41,13 +41,27 @@ model User{
   email String @unique
   password_hash String
   status UserStatus @default(inactive)
+  mfa_enabled Boolean @default(false)
+  mfa_secret String?
+  mfa_recovery_codes String?
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
   user_groups UserGroup[]
   sso_sessions SsoSession[]
   authorization_codes AuthorizationCode[]
   access_tokens AccessToken[]
+  mfa_pending_sessions MfaPendingSession[]
   @@map("users")
+}
+
+model MfaPendingSession{
+  id String @id @default(uuid())
+  user_id String
+  token String @unique
+  expires_at DateTime
+  created_at DateTime @default(now())
+  user User @relation(fields:[user_id],references:[id],onDelete:Cascade)
+  @@map("mfa_pending_sessions")
 }
 
 model Group{
