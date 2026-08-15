@@ -33,7 +33,8 @@ services:
 
   auth-provider:
     build:
-      context: ./auth-provider/server
+      context: ./auth-provider
+      dockerfile: server/Dockerfile
     container_name: auth_provider_server
     ports:
       - "4000:4000"
@@ -49,7 +50,8 @@ services:
 
   outbox-publisher:
     build:
-      context: ./auth-provider/server
+      context: ./auth-provider
+      dockerfile: server/Dockerfile
     container_name: outbox_publisher
     command: node src/publisher.js
     environment:
@@ -63,7 +65,8 @@ services:
 
   sync-worker:
     build:
-      context: ./auth-provider/server
+      context: ./auth-provider
+      dockerfile: server/Dockerfile
     container_name: sync_worker
     command: node src/worker.js
     environment:
