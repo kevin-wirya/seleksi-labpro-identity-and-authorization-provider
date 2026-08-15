@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import amqp, { Channel } from 'amqplib';
+import amqp, { Channel, Connection } from 'amqplib';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
@@ -10,11 +10,13 @@ const pool=new Pool({connectionString});
 const adapter=new PrismaPg(pool);
 const prisma=new PrismaClient({adapter});
 
+let conn: any=null;
 let channel: Channel | null=null;
+let pollTimer: NodeJS.Timeout | null=null;
 
 async function connectRabbitMQ(){
     try{
-        const conn=await amqp.connect(rabbitUrl);
+        conn=await amqp.connect(rabbitUrl);
         channel=await conn.createChannel();
         await channel.assertQueue('identity_events',{durable:true});
         console.log('✅ Outbox Publisher connected to RabbitMQ queue: identity_events');
@@ -58,8 +60,27 @@ async function pollOutbox(){
 
 async function start(){
     await connectRabbitMQ();
-    setInterval(pollOutbox,3000);
+    pollTimer=setInterval(pollOutbox,3000);
     console.log('🔄 Outbox Relay Publisher running (polling every 3s)...');
 }
+
+async function gracefulShutdown(signal: string){
+    console.log(`\n🛑 [Publisher] Received ${signal}. Starting graceful shutdown...`);
+    if(pollTimer)clearInterval(pollTimer);
+    try{
+        if(channel)await channel.close();
+        if(conn)await conn.close();
+        await prisma.$disconnect();
+        await pool.end();
+        console.log('✅ Publisher closed connections cleanly.');
+        process.exit(0);
+    }catch(err: any){
+        console.error('❌ Error during publisher shutdown:',err.message);
+        process.exit(1);
+    }
+}
+
+process.on('SIGTERM',()=>gracefulShutdown('SIGTERM'));
+process.on('SIGINT',()=>gracefulShutdown('SIGINT'));
 
 start();

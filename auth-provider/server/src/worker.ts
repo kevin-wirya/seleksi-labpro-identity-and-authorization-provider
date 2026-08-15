@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import amqp from 'amqplib';
+import amqp, { Channel, Connection } from 'amqplib';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
@@ -10,15 +10,19 @@ const pool=new Pool({connectionString});
 const adapter=new PrismaPg(pool);
 const prisma=new PrismaClient({adapter});
 
+let conn: any=null;
+let channel: Channel | null=null;
+let isShuttingDown=false;
+
 async function startWorker(){
     try{
-        const conn=await amqp.connect(rabbitUrl);
-        const channel=await conn.createChannel();
+        conn=await amqp.connect(rabbitUrl);
+        channel=await conn.createChannel();
         await channel.assertQueue('identity_events',{durable:true});
         await channel.assertQueue('identity_events_dlq',{durable:true});
         console.log('👷 [Sync Worker] Connected to RabbitMQ. Listening on identity_events...');
         channel.consume('identity_events',async(msg)=>{
-            if(!msg)return;
+            if(!msg||isShuttingDown)return;
             try{
                 const eventData=JSON.parse(msg.content.toString());
                 console.log(`📥 [Sync Worker] Processing event: ${eventData.id} (${eventData.event_type})`);
@@ -67,21 +71,43 @@ async function startWorker(){
                     });
                 }
                 if(allSuccess){
-                    channel.ack(msg);
+                    if(channel)channel.ack(msg);
                 }else{
                     console.log(`⚠️ Event ${eventData.id} had delivery failures, sending to DLQ`);
-                    channel.sendToQueue('identity_events_dlq',msg.content,{persistent:true});
-                    channel.ack(msg);
+                    if(channel){
+                        channel.sendToQueue('identity_events_dlq',msg.content,{persistent:true});
+                        channel.ack(msg);
+                    }
                 }
             }catch(err: any){
                 console.error('❌ [Sync Worker] Unexpected error:',err.message);
-                channel.nack(msg,false,true);
+                if(channel)channel.nack(msg,false,true);
             }
         });
     }catch(err: any){
+        if(isShuttingDown)return;
         console.error('❌ [Sync Worker] Connection error, retrying in 5s...',err.message);
         setTimeout(startWorker,5000);
     }
 }
+
+async function gracefulShutdown(signal: string){
+    console.log(`\n🛑 [Sync Worker] Received ${signal}. Starting graceful shutdown...`);
+    isShuttingDown=true;
+    try{
+        if(channel)await channel.close();
+        if(conn)await conn.close();
+        await prisma.$disconnect();
+        await pool.end();
+        console.log('✅ Sync Worker closed connections cleanly.');
+        process.exit(0);
+    }catch(err: any){
+        console.error('❌ Error during worker shutdown:',err.message);
+        process.exit(1);
+    }
+}
+
+process.on('SIGTERM',()=>gracefulShutdown('SIGTERM'));
+process.on('SIGINT',()=>gracefulShutdown('SIGINT'));
 
 startWorker();

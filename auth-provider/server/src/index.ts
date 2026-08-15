@@ -68,6 +68,29 @@ app.get('/health/ready',async(req: Request,res: Response)=>{
     }
 });
 
-app.listen(PORT,()=>{
+const server=app.listen(PORT,()=>{
     console.log(`🚀 Auth Provider Server running on http://localhost:${PORT}`);
 });
+
+async function gracefulShutdown(signal: string){
+    console.log(`\n🛑 [Server] Received ${signal}. Starting graceful shutdown...`);
+    server.close(async()=>{
+        console.log('🔒 HTTP server closed.');
+        try{
+            await prisma.$disconnect();
+            await pool.end();
+            console.log('✅ PostgreSQL connection pool closed.');
+            process.exit(0);
+        }catch(err: any){
+            console.error('❌ Error during shutdown:',err.message);
+            process.exit(1);
+        }
+    });
+    setTimeout(()=>{
+        console.error('⚠️ Shutdown timeout reached. Forcefully exiting...');
+        process.exit(1);
+    },10000);
+}
+
+process.on('SIGTERM',()=>gracefulShutdown('SIGTERM'));
+process.on('SIGINT',()=>gracefulShutdown('SIGINT'));
