@@ -1,15 +1,15 @@
-require('dotenv/config');
-const { PrismaClient } = require('@prisma/client');
-const { PrismaPg } = require('@prisma/adapter-pg');
-const { Pool } = require('pg');
-const crypto = require('crypto');
+import 'dotenv/config';
+import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { Pool } from 'pg';
+import crypto from 'crypto';
 
 const connectionString = process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/sso_db?schema=public';
 const pool = new Pool({ connectionString });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
-function hashPassword(password) {
+function hashPassword(password: string): string {
   const salt = crypto.randomBytes(16).toString('hex');
   const hash = crypto.scryptSync(password, salt, 64).toString('hex');
   return `${salt}:${hash}`;
@@ -34,13 +34,14 @@ async function main() {
     },
   });
   console.log(`✅ User Admin created/updated: ${adminUser.email}`);
+
   // buat grup dasar
   const groupData = [
     { name: 'administrators', description: 'System Administrators with full access' },
     { name: 'app-a-users', description: 'Users allowed to access App A' },
     { name: 'app-b-users', description: 'Users allowed to access App B' },
   ];
-  const groups = {};
+  const groups: Record<string, any> = {};
   for (const g of groupData) {
     const group = await prisma.group.upsert({
       where: { name: g.name },
@@ -50,6 +51,7 @@ async function main() {
     groups[g.name] = group;
     console.log(`✅ Group created/updated: ${group.name}`);
   }
+
   // assign admin ke seluruh grup
   for (const groupName of Object.keys(groups)) {
     await prisma.userGroup.upsert({
@@ -67,6 +69,7 @@ async function main() {
     });
   }
   console.log(`✅ Admin user assigned to all default groups`);
+
   // daftarkan app A
   const appA = await prisma.application.upsert({
     where: { client_id: 'app-a' },
@@ -85,6 +88,7 @@ async function main() {
     },
   });
   console.log(`✅ Application App A created/updated: ${appA.client_id}`);
+
   // redirect uri app a
   const appARedirectUris = ['http://localhost:3001/callback', 'http://localhost:3001/api/auth/callback'];
   for (const uri of appARedirectUris) {
@@ -97,6 +101,7 @@ async function main() {
       });
     }
   }
+
   // policies app a
   const appAGroups = ['administrators', 'app-a-users'];
   for (const groupName of appAGroups) {
@@ -116,6 +121,7 @@ async function main() {
       },
     });
   }
+
   // daftarkan app B
   const appB = await prisma.application.upsert({
     where: { client_id: 'app-b' },
@@ -134,6 +140,7 @@ async function main() {
     },
   });
   console.log(`✅ Application App B created/updated: ${appB.client_id}`);
+
   // redirect uri app b
   const appBRedirectUris = ['http://localhost:3002/callback', 'http://localhost:3002/api/auth/callback'];
   for (const uri of appBRedirectUris) {
@@ -146,6 +153,7 @@ async function main() {
       });
     }
   }
+
   // policies app b
   const appBGroups = ['administrators', 'app-b-users'];
   for (const groupName of appBGroups) {

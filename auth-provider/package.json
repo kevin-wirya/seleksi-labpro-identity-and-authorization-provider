@@ -11,7 +11,8 @@
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
-    "prisma": "^7.9.1"
+    "prisma": "^7.9.1",
+    "ts-node": "^10.9.2"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",
@@ -20,6 +21,6 @@
     "pg": "^8.23.0"
   },
   "prisma": {
-    "seed": "node prisma/seed.js"
+    "seed": "npx ts-node prisma/seed.ts"
   }
 }
