@@ -1,14 +1,14 @@
-const express=require('express');
-const crypto=require('crypto');
-const {verifyPassword}=require('../utils/hash');
+import express, { Request, Response } from 'express';
+import crypto from 'crypto';
+import { verifyPassword } from '../utils/hash';
 const router=express.Router();
 
-function hashSessionToken(token){
+function hashSessionToken(token: string): string {
     return crypto.createHash('sha256').update(token).digest('hex');
 }
 
 // POST /api/auth/login
-router.post('/login',async(req,res)=>{
+router.post('/login',async(req: any,res: Response)=>{
     const prisma=req.prisma;
     const{email,password}=req.body;
     if(!email||!password){
@@ -26,8 +26,8 @@ router.post('/login',async(req,res)=>{
         const rawSessionToken=crypto.randomBytes(32).toString('hex');
         const session_token_hash=hashSessionToken(rawSessionToken);
         const expires_at=new Date(Date.now()+24*60*60*1000); // expired dalam 24 Jam
-        const ip_address=req.ip||req.headers['x-forwarded-for']||null;
-        const user_agent=req.headers['user-agent']||null;
+        const ip_address=(req.ip||req.headers['x-forwarded-for']||null) as string | null;
+        const user_agent=(req.headers['user-agent']||null) as string | null;
         await prisma.ssoSession.create({
             data:{
                 user_id:user.id,
@@ -54,13 +54,13 @@ router.post('/login',async(req,res)=>{
                 email:user.email,
             },
         });
-    }catch(error){
+    }catch(error: any){
         res.status(500).json({success:false,error:error.message});
     }
 });
 
 // GET /api/auth/me
-router.get('/me',async(req,res)=>{
+router.get('/me',async(req: any,res: Response)=>{
     const prisma=req.prisma;
     const rawSessionToken=req.cookies?.sso_session;
     if(!rawSessionToken){
@@ -93,21 +93,25 @@ router.get('/me',async(req,res)=>{
             return res.status(401).json({success:false,error:'Session expired or invalid'});
         }
         res.json({success:true,data:session.user});
-    }catch(error){
+    }catch(error: any){
         res.status(500).json({success:false,error:error.message});
     }
 });
 
 // GET /api/auth/authorize
-router.get('/authorize',async(req,res)=>{
+router.get('/authorize',async(req: any,res: Response)=>{
     const prisma=req.prisma;
     const{client_id,redirect_uri,state}=req.query;
     if(!client_id||!redirect_uri||!state){
         return res.status(400).json({success:false,error:'client_id, redirect_uri, and state are required'});
     }
+    const clientIdStr=String(client_id);
+    const redirectUriStr=String(redirect_uri);
+    const stateStr=String(state);
+
     try{
         const app=await prisma.application.findUnique({
-            where:{client_id},
+            where:{client_id:clientIdStr},
             include:{
                 redirect_uris:true,
                 group_policies:true,
@@ -116,7 +120,7 @@ router.get('/authorize',async(req,res)=>{
         if(!app||app.status!=='active'){
             return res.status(400).json({success:false,error:'Invalid or inactive client_id'});
         }
-        const isExactMatch=app.redirect_uris.some(r=>r.redirect_uri===redirect_uri);
+        const isExactMatch=app.redirect_uris.some((r: any)=>r.redirect_uri===redirectUriStr);
         if(!isExactMatch){
             return res.status(400).json({success:false,error:'Invalid redirect_uri (Must be exact match)'});
         }
@@ -142,12 +146,12 @@ router.get('/authorize',async(req,res)=>{
         if(!session||!session.user||session.user.status!=='active'){
             return res.status(401).json({success:false,error:'Invalid or expired central session'});
         }
-        const userGroupIds=session.user.user_groups.map(ug=>ug.group_id);
+        const userGroupIds=session.user.user_groups.map((ug: any)=>ug.group_id);
         const policies=app.group_policies;
         let isAllowed=true;
         if(policies.length>0){
-            const hasDeny=policies.some(p=>p.effect==='deny'&&userGroupIds.includes(p.group_id));
-            const hasAllow=policies.some(p=>p.effect==='allow'&&userGroupIds.includes(p.group_id));
+            const hasDeny=policies.some((p: any)=>p.effect==='deny'&&userGroupIds.includes(p.group_id));
+            const hasAllow=policies.some((p: any)=>p.effect==='allow'&&userGroupIds.includes(p.group_id));
             if(hasDeny||!hasAllow){
                 isAllowed=false;
             }
@@ -162,14 +166,14 @@ router.get('/authorize',async(req,res)=>{
                     session_id:session.id,
                     result:'denied',
                     metadata:JSON.stringify({reason:'User groups do not satisfy application policy',user_groups:userGroupIds}),
-                    ip_address:req.ip||req.headers['x-forwarded-for']||null,
+                    ip_address:(req.ip||req.headers['x-forwarded-for']||null) as string | null,
                 }
             });
 
-            const redirectUrl=new URL(redirect_uri);
+            const redirectUrl=new URL(redirectUriStr);
             redirectUrl.searchParams.set('error','access_denied');
             redirectUrl.searchParams.set('error_description','User is not authorized to access this application');
-            redirectUrl.searchParams.set('state',state);
+            redirectUrl.searchParams.set('state',stateStr);
             return res.redirect(302,redirectUrl.toString());
         }
         const rawCode=crypto.randomBytes(32).toString('hex');
@@ -181,7 +185,7 @@ router.get('/authorize',async(req,res)=>{
                 user_id:session.user_id,
                 application_id:app.id,
                 sso_session_id:session.id,
-                redirect_uri,
+                redirect_uri:redirectUriStr,
                 expires_at,
             }
         });
@@ -193,20 +197,20 @@ router.get('/authorize',async(req,res)=>{
                 application_id:app.id,
                 session_id:session.id,
                 result:'granted',
-                ip_address:req.ip||req.headers['x-forwarded-for']||null,
+                ip_address:(req.ip||req.headers['x-forwarded-for']||null) as string | null,
             }
         });
-        const targetUrl=new URL(redirect_uri);
+        const targetUrl=new URL(redirectUriStr);
         targetUrl.searchParams.set('code',rawCode);
-        targetUrl.searchParams.set('state',state);
+        targetUrl.searchParams.set('state',stateStr);
         return res.redirect(302,targetUrl.toString());
-    }catch(error){
+    }catch(error: any){
         res.status(500).json({success:false,error:error.message});
     }
 });
 
 // POST /api/auth/token
-router.post('/token',async(req,res)=>{
+router.post('/token',async(req: any,res: Response)=>{
     const prisma=req.prisma;
     const{grant_type,code,client_id,redirect_uri}=req.body;
     if(grant_type!=='authorization_code'||!code||!client_id||!redirect_uri){
@@ -237,7 +241,7 @@ router.post('/token',async(req,res)=>{
                     session_id:authCode.sso_session_id,
                     result:'denied',
                     metadata:JSON.stringify({reason:'Attempted to reuse authorization code'}),
-                    ip_address:req.ip||req.headers['x-forwarded-for']||null,
+                    ip_address:(req.ip||req.headers['x-forwarded-for']||null) as string | null,
                 }
             });
             return res.status(400).json({success:false,error:'Authorization code already used'});
@@ -267,7 +271,7 @@ router.post('/token',async(req,res)=>{
                 application_id:authCode.application_id,
                 session_id:authCode.sso_session_id,
                 result:'granted',
-                ip_address:req.ip||req.headers['x-forwarded-for']||null,
+                ip_address:(req.ip||req.headers['x-forwarded-for']||null) as string | null,
             }
         });
         res.json({
@@ -275,13 +279,13 @@ router.post('/token',async(req,res)=>{
             token_type:'Bearer',
             expires_in:3600,
         });
-    }catch(error){
+    }catch(error: any){
         res.status(500).json({success:false,error:error.message});
     }
 });
 
 // GET /api/auth/userinfo
-router.get('/userinfo',async(req,res)=>{
+router.get('/userinfo',async(req: any,res: Response)=>{
     const prisma=req.prisma;
     const authHeader=req.headers.authorization;
     if(!authHeader||!authHeader.startsWith('Bearer ')){
@@ -316,7 +320,7 @@ router.get('/userinfo',async(req,res)=>{
             return res.status(401).json({success:false,error:'Invalid or expired access token'});
         }
         const user=tokenRecord.user;
-        const groups=user.user_groups.map(ug=>ug.group.name);
+        const groups=user.user_groups.map((ug: any)=>ug.group.name);
         res.json({
             sub:user.id,
             name:user.name,
@@ -324,13 +328,13 @@ router.get('/userinfo',async(req,res)=>{
             status:user.status,
             groups,
         });
-    }catch(error){
+    }catch(error: any){
         res.status(500).json({success:false,error:error.message});
     }
 });
 
 // ALL /api/auth/logout
-router.all('/logout',async(req,res)=>{
+router.all('/logout',async(req: any,res: Response)=>{
     const prisma=req.prisma;
     const rawSessionToken=req.cookies?.sso_session;
     const redirect_uri=req.query?.redirect_uri||req.body?.redirect_uri;
@@ -341,7 +345,7 @@ router.all('/logout',async(req,res)=>{
                 where:{session_token_hash,status:'active'},
             });
             if(session){
-                await prisma.$transaction(async(tx)=>{
+                await prisma.$transaction(async(tx: any)=>{
                     await tx.ssoSession.update({
                         where:{id:session.id},
                         data:{
@@ -357,7 +361,7 @@ router.all('/logout',async(req,res)=>{
                             user_id:session.user_id,
                             session_id:session.id,
                             result:'success',
-                            ip_address:req.ip||req.headers['x-forwarded-for']||null,
+                            ip_address:(req.ip||req.headers['x-forwarded-for']||null) as string | null,
                         },
                     });
                     await tx.event.create({
@@ -383,9 +387,9 @@ router.all('/logout',async(req,res)=>{
     }
     res.clearCookie('sso_session',{path:'/'});
     if(redirect_uri){
-        return res.redirect(302,redirect_uri);
+        return res.redirect(302,String(redirect_uri));
     }
     res.json({success:true,message:'Central SSO session revoked successfully'});
 });
 
-module.exports=router;
+export default router;
