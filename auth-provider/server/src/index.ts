@@ -11,6 +11,7 @@ import authRoute from './routes/auth';
 import usersRoute from './routes/users';
 import groupsRoute from './routes/groups';
 import applicationsRoute from './routes/applications';
+import metricsRoute, { globalMetrics } from './routes/metrics';
 
 const app=express();
 const PORT=process.env.PORT||4000;
@@ -24,13 +25,30 @@ app.use(express.json());
 app.use(cookieParser());
 app.use((req: any,res: Response,next: NextFunction)=>{
     req.prisma=prisma;
+    const start=Date.now();
+    res.on('finish',()=>{
+        const duration=Date.now()-start;
+        globalMetrics.totalRequests+=1;
+        globalMetrics.totalLatencyMs+=duration;
+        if(res.statusCode>=400){
+            globalMetrics.totalErrors+=1;
+        }else{
+            globalMetrics.totalSuccess+=1;
+        }
+    });
     console.log(`📩 Request Masuk: ${req.method} ${req.url}`);
     next();
 });
+
 app.use('/api/auth',authRoute);
 app.use('/api/admin/users',usersRoute);
 app.use('/api/admin/groups',groupsRoute);
 app.use('/api/admin/applications',applicationsRoute);
+app.use('/api/admin/metrics',metricsRoute);
+app.get('/metrics-ui',(req: Request,res: Response)=>{
+    res.redirect('/api/admin/metrics/ui');
+});
+
 app.get('/health',(req: Request,res: Response)=>{
     res.json({status:'ok',timestamp:new Date()});
 });
@@ -70,6 +88,7 @@ app.get('/health/ready',async(req: Request,res: Response)=>{
 
 const server=app.listen(PORT,()=>{
     console.log(`🚀 Auth Provider Server running on http://localhost:${PORT}`);
+    console.log(`📊 Observability Dashboard: http://localhost:${PORT}/metrics-ui`);
 });
 
 async function gracefulShutdown(signal: string){
