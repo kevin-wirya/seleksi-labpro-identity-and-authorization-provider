@@ -1,8 +1,8 @@
-require('dotenv/config');
-const amqp=require('amqplib');
-const {PrismaClient}=require('@prisma/client');
-const {PrismaPg}=require('@prisma/adapter-pg');
-const {Pool}=require('pg');
+import 'dotenv/config';
+import amqp from 'amqplib';
+import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { Pool } from 'pg';
 
 const connectionString=process.env.DATABASE_URL||'postgresql://admin:secret@localhost:5432/sso_db?schema=public';
 const rabbitUrl=process.env.RABBITMQ_URL||'amqp://guest:guest@localhost:5672';
@@ -28,7 +28,7 @@ async function startWorker(){
                     const webhookUrl=app.logout_notification_url;
                     if(!webhookUrl)continue;
                     let isSuccess=false;
-                    let errorMsg=null;
+                    let errorMsg: string | null=null;
                     try{
                         const res=await fetch(webhookUrl,{
                             method:'POST',
@@ -50,7 +50,7 @@ async function startWorker(){
                             allSuccess=false;
                             console.warn(`⚠️ Webhook to ${app.name} returned status ${res.status}`);
                         }
-                    }catch(err){
+                    }catch(err: any){
                         errorMsg=err.message;
                         allSuccess=false;
                         console.error(`❌ Webhook to ${app.name} failed:`,err.message);
@@ -73,12 +73,12 @@ async function startWorker(){
                     channel.sendToQueue('identity_events_dlq',msg.content,{persistent:true});
                     channel.ack(msg);
                 }
-            }catch(err){
+            }catch(err: any){
                 console.error('❌ [Sync Worker] Unexpected error:',err.message);
                 channel.nack(msg,false,true);
             }
         });
-    }catch(err){
+    }catch(err: any){
         console.error('❌ [Sync Worker] Connection error, retrying in 5s...',err.message);
         setTimeout(startWorker,5000);
     }

@@ -1,15 +1,16 @@
-require('dotenv/config');
-const amqp=require('amqplib');
-const {PrismaClient}=require('@prisma/client');
-const {PrismaPg}=require('@prisma/adapter-pg');
-const {Pool}=require('pg');
+import 'dotenv/config';
+import amqp, { Channel } from 'amqplib';
+import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { Pool } from 'pg';
+
 const connectionString=process.env.DATABASE_URL||'postgresql://admin:secret@localhost:5432/sso_db?schema=public';
 const rabbitUrl=process.env.RABBITMQ_URL||'amqp://guest:guest@localhost:5672';
 const pool=new Pool({connectionString});
 const adapter=new PrismaPg(pool);
 const prisma=new PrismaClient({adapter});
 
-let channel=null;
+let channel: Channel | null=null;
 
 async function connectRabbitMQ(){
     try{
@@ -17,7 +18,7 @@ async function connectRabbitMQ(){
         channel=await conn.createChannel();
         await channel.assertQueue('identity_events',{durable:true});
         console.log('✅ Outbox Publisher connected to RabbitMQ queue: identity_events');
-    }catch(err){
+    }catch(err: any){
         console.error('❌ RabbitMQ connection error, retrying in 5s...',err.message);
         setTimeout(connectRabbitMQ,5000);
     }
@@ -50,7 +51,7 @@ async function pollOutbox(){
                 console.log(`📡 [Outbox Publisher] Published event: ${evt.id} (${evt.event_type})`);
             }
         }
-    }catch(err){
+    }catch(err: any){
         console.error('❌ Error polling outbox events:',err.message);
     }
 }
