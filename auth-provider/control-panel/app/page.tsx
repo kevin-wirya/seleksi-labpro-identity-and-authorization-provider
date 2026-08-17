@@ -1,6 +1,6 @@
 'use client';
 import {useState,useEffect} from 'react';
-import {getUsers,createUser,updateUserStatus,getGroups,createGroup,assignUserToGroup,User,Group} from '../lib/api';
+import {getUsers,createUser,updateUserStatus,getGroups,createGroup,assignUserToGroup,getApplications,createApplication,addRedirectUri,createPolicy,User,Group,Application} from '../lib/api';
 
 const IconShield=()=>(<svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>);
 const IconBarChart=()=>(<svg className="w-4 h-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>);
@@ -12,11 +12,13 @@ const IconPolicy=()=>(<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" s
 const IconPlus=()=>(<svg className="w-4 h-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/></svg>);
 const IconUserPlus=()=>(<svg className="w-4 h-4 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>);
 const IconRefresh=()=>(<svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>);
+const IconLink=()=>(<svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>);
 
 export default function Home(){
     const[activeTab,setActiveTab]=useState<'users'|'groups'|'apps'|'policies'>('users');
     const[users,setUsers]=useState<User[]>([]);
     const[groups,setGroups]=useState<Group[]>([]);
+    const[applications,setApplications]=useState<Application[]>([]);
     const[loading,setLoading]=useState<boolean>(true);
     const[error,setError]=useState<string>('');
     const[success,setSuccess]=useState<string>('');
@@ -35,6 +37,21 @@ export default function Home(){
     const[assignUserId,setAssignUserId]=useState<string>('');
     const[assignGroupId,setAssignGroupId]=useState<string>('');
 
+    // application form state
+    const[appName,setAppName]=useState<string>('');
+    const[appClientId,setAppClientId]=useState<string>('');
+    const[appLaunchUrl,setAppLaunchUrl]=useState<string>('');
+    const[appLogoutUrl,setAppLogoutUrl]=useState<string>('');
+
+    // add redirect uri form state
+    const[selectedAppForUri,setSelectedAppForUri]=useState<string>('');
+    const[newRedirectUri,setNewRedirectUri]=useState<string>('');
+
+    // policy form state
+    const[policyAppId,setPolicyAppId]=useState<string>('');
+    const[policyGroupId,setPolicyGroupId]=useState<string>('');
+    const[policyEffect,setPolicyEffect]=useState<'allow'|'deny'>('allow');
+
     useEffect(()=>{
         loadData();
     },[]);
@@ -43,11 +60,19 @@ export default function Home(){
         setLoading(true);
         setError('');
         try{
-            const[userData,groupData]=await Promise.all([getUsers(),getGroups()]);
+            const[userData,groupData,appData]=await Promise.all([getUsers(),getGroups(),getApplications()]);
             setUsers(userData);
             setGroups(groupData);
+            setApplications(appData);
             if(userData.length>0)setAssignUserId(userData[0].id);
-            if(groupData.length>0)setAssignGroupId(groupData[0].id);
+            if(groupData.length>0){
+                setAssignGroupId(groupData[0].id);
+                setPolicyGroupId(groupData[0].id);
+            }
+            if(appData.length>0){
+                setSelectedAppForUri(appData[0].id);
+                setPolicyAppId(appData[0].id);
+            }
         }catch(err: any){
             setError(err.message||'Failed to load data');
         }finally{
@@ -107,6 +132,52 @@ export default function Home(){
         try{
             await assignUserToGroup({user_id:assignUserId,group_id:assignGroupId});
             setSuccess('User assigned to group successfully!');
+            loadData();
+        }catch(err: any){
+            setError(err.message);
+        }
+    };
+
+    const handleCreateApp=async(e: React.FormEvent)=>{
+        e.preventDefault();
+        setError('');
+        setSuccess('');
+        try{
+            await createApplication({name:appName,client_id:appClientId,launch_url:appLaunchUrl,logout_notification_url:appLogoutUrl});
+            setSuccess('Application registered successfully!');
+            setAppName('');
+            setAppClientId('');
+            setAppLaunchUrl('');
+            setAppLogoutUrl('');
+            loadData();
+        }catch(err: any){
+            setError(err.message);
+        }
+    };
+
+    const handleAddRedirectUri=async(e: React.FormEvent)=>{
+        e.preventDefault();
+        if(!selectedAppForUri||!newRedirectUri)return;
+        setError('');
+        setSuccess('');
+        try{
+            await addRedirectUri(selectedAppForUri,newRedirectUri);
+            setSuccess('Redirect URI added successfully!');
+            setNewRedirectUri('');
+            loadData();
+        }catch(err: any){
+            setError(err.message);
+        }
+    };
+
+    const handleCreatePolicy=async(e: React.FormEvent)=>{
+        e.preventDefault();
+        if(!policyAppId||!policyGroupId)return;
+        setError('');
+        setSuccess('');
+        try{
+            await createPolicy(policyAppId,{group_id:policyGroupId,effect:policyEffect});
+            setSuccess('Group Access Policy granted successfully!');
             loadData();
         }catch(err: any){
             setError(err.message);
@@ -328,10 +399,177 @@ export default function Home(){
                     </div>
                 )}
 
-                {/* TAB 3 & 4 PLACEHOLDERS */}
-                {(activeTab==='apps'||activeTab==='policies')&&(
-                    <div className="bg-zinc-900 border border-zinc-800 p-8 rounded-2xl text-center">
-                        <p className="text-zinc-400 text-sm">Applications and Policies Management tab will be loaded in the next step.</p>
+                {/* TAB 3: APPLICATIONS */}
+                {activeTab==='apps'&&(
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl shadow-lg space-y-6">
+                            <div>
+                                <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                                    <IconPlus/> Register Application
+                                </h2>
+                                <form onSubmit={handleCreateApp} className="space-y-4">
+                                    <div>
+                                        <label className="block text-xs font-medium text-zinc-400 mb-1">Application Name</label>
+                                        <input type="text" required placeholder="e.g. App A" value={appName} onChange={(e)=>setAppName(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-sky-500"/>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-zinc-400 mb-1">Client ID</label>
+                                        <input type="text" required placeholder="e.g. app-a" value={appClientId} onChange={(e)=>setAppClientId(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-sky-500"/>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-zinc-400 mb-1">Launch URL</label>
+                                        <input type="text" placeholder="http://localhost:3001" value={appLaunchUrl} onChange={(e)=>setAppLaunchUrl(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-sky-500"/>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-zinc-400 mb-1">Logout Webhook URL</label>
+                                        <input type="text" placeholder="http://app-a:3001/api/logout-webhook" value={appLogoutUrl} onChange={(e)=>setAppLogoutUrl(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-sky-500"/>
+                                    </div>
+                                    <button type="submit" className="w-full bg-sky-600 hover:bg-sky-500 text-white font-medium text-sm py-2.5 rounded-lg transition">
+                                        Register App
+                                    </button>
+                                </form>
+                            </div>
+
+                            <hr className="border-zinc-800"/>
+
+                            <div>
+                                <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                                    <IconLink/> Add Redirect URI
+                                </h2>
+                                <form onSubmit={handleAddRedirectUri} className="space-y-4">
+                                    <div>
+                                        <label className="block text-xs font-medium text-zinc-400 mb-1">Select Application</label>
+                                        <select value={selectedAppForUri} onChange={(e)=>setSelectedAppForUri(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-sky-500">
+                                            {applications.map((app)=>(
+                                                <option key={app.id} value={app.id}>{app.name} ({app.client_id})</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-zinc-400 mb-1">Redirect URI</label>
+                                        <input type="text" required placeholder="http://localhost:3001/api/auth/callback" value={newRedirectUri} onChange={(e)=>setNewRedirectUri(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-sky-500"/>
+                                    </div>
+                                    <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-sm py-2.5 rounded-lg transition">
+                                        Add Redirect URI
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+
+                        <div className="lg:col-span-2 bg-zinc-900 border border-zinc-800 p-6 rounded-2xl shadow-lg">
+                            <div className="flex justify-between items-center mb-4">
+                                <h2 className="text-lg font-semibold text-white">Registered Applications</h2>
+                                <button onClick={loadData} className="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-xs px-3 py-1.5 rounded-lg transition font-medium flex items-center gap-1.5">
+                                    <IconRefresh/> Refresh
+                                </button>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left text-sm text-zinc-300">
+                                    <thead className="bg-zinc-950 text-xs text-zinc-400 uppercase border-b border-zinc-800">
+                                        <tr>
+                                            <th className="p-3">App Name</th>
+                                            <th className="p-3">Client ID</th>
+                                            <th className="p-3">Redirect URIs</th>
+                                            <th className="p-3">Webhook URL</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-zinc-800">
+                                        {loading?(
+                                            <tr><td colSpan={4} className="p-4 text-center text-zinc-500">Loading applications...</td></tr>
+                                        ):applications.length===0?(
+                                            <tr><td colSpan={4} className="p-4 text-center text-zinc-500">No applications registered.</td></tr>
+                                        ):applications.map((app)=>(
+                                            <tr key={app.id} className="hover:bg-zinc-800/50">
+                                                <td className="p-3 font-medium text-white">{app.name}</td>
+                                                <td className="p-3 font-mono text-xs text-sky-400">{app.client_id}</td>
+                                                <td className="p-3">
+                                                    {app.redirect_uris&&app.redirect_uris.length>0?app.redirect_uris.map((r)=>(
+                                                        <div key={r.id} className="font-mono text-xs text-zinc-400">{r.redirect_uri}</div>
+                                                    )):<span className="text-zinc-600">-</span>}
+                                                </td>
+                                                <td className="p-3 font-mono text-xs text-zinc-400">{app.logout_notification_url||'-'}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* TAB 4: ACCESS POLICIES */}
+                {activeTab==='policies'&&(
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl shadow-lg">
+                            <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                                <IconPlus/> Create Access Policy
+                            </h2>
+                            <form onSubmit={handleCreatePolicy} className="space-y-4">
+                                <div>
+                                    <label className="block text-xs font-medium text-zinc-400 mb-1">Select Application</label>
+                                    <select value={policyAppId} onChange={(e)=>setPolicyAppId(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-sky-500">
+                                        {applications.map((app)=>(
+                                            <option key={app.id} value={app.id}>{app.name} ({app.client_id})</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-zinc-400 mb-1">Select Group</label>
+                                    <select value={policyGroupId} onChange={(e)=>setPolicyGroupId(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-sky-500">
+                                        {groups.map((g)=>(
+                                            <option key={g.id} value={g.id}>{g.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-zinc-400 mb-1">Effect</label>
+                                    <select value={policyEffect} onChange={(e)=>setPolicyEffect(e.target.value as any)} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-sky-500">
+                                        <option value="allow">ALLOW</option>
+                                        <option value="deny">DENY</option>
+                                    </select>
+                                </div>
+                                <button type="submit" className="w-full bg-sky-600 hover:bg-sky-500 text-white font-medium text-sm py-2.5 rounded-lg transition">
+                                    Grant Policy
+                                </button>
+                            </form>
+                        </div>
+
+                        <div className="lg:col-span-2 bg-zinc-900 border border-zinc-800 p-6 rounded-2xl shadow-lg">
+                            <div className="flex justify-between items-center mb-4">
+                                <h2 className="text-lg font-semibold text-white">Active Access Policies</h2>
+                                <button onClick={loadData} className="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-xs px-3 py-1.5 rounded-lg transition font-medium flex items-center gap-1.5">
+                                    <IconRefresh/> Refresh
+                                </button>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left text-sm text-zinc-300">
+                                    <thead className="bg-zinc-950 text-xs text-zinc-400 uppercase border-b border-zinc-800">
+                                        <tr>
+                                            <th className="p-3">Application</th>
+                                            <th className="p-3">Allowed Group</th>
+                                            <th className="p-3">Effect</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-zinc-800">
+                                        {loading?(
+                                            <tr><td colSpan={3} className="p-4 text-center text-zinc-500">Loading policies...</td></tr>
+                                        ):applications.flatMap((app)=>(app.group_policies||[]).map((p)=>({policy:p,app}))).length===0?(
+                                            <tr><td colSpan={3} className="p-4 text-center text-zinc-500">No policies created yet.</td></tr>
+                                        ):applications.flatMap((app)=>(app.group_policies||[]).map((p)=>({policy:p,app}))).map(({policy,app})=>(
+                                            <tr key={policy.id} className="hover:bg-zinc-800/50">
+                                                <td className="p-3 font-medium text-white">{app.name} ({app.client_id})</td>
+                                                <td className="p-3 font-semibold text-sky-400">{policy.group?policy.group.name:policy.group_id}</td>
+                                                <td className="p-3">
+                                                    <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${policy.effect==='allow'?'bg-emerald-950 text-emerald-400 border border-emerald-500/30':'bg-red-950 text-red-400 border border-red-500/30'}`}>
+                                                        {policy.effect.toUpperCase()}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
                 )}
             </div>
