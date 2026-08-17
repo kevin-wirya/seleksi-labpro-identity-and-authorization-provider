@@ -400,7 +400,7 @@ export default function Home(){
                                             <tr key={g.id} className="hover:bg-zinc-800/50">
                                                 <td className="p-3 font-medium text-white">{g.name}</td>
                                                 <td className="p-3 text-zinc-400">{g.description||'-'}</td>
-                                                <td className="p-3 font-semibold text-sky-400">{g.user_groups?g.user_groups.length:0} users</td>
+                                                <td className="p-3 font-semibold text-sky-400">{g._count?.user_groups ?? g.user_groups?.length ?? 0} users</td>
                                             </tr>
                                         ))}
                                     </tbody>

@@ -7,6 +7,7 @@ router.get('/',async(req: any,res: Response)=>{
     try{
         const groups=await prisma.group.findMany({
             include:{
+                user_groups:true,
                 _count:{
                     select:{user_groups:true}
                 },

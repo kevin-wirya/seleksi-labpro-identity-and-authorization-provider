@@ -27,6 +27,7 @@ export interface Group{
     description?: string;
     created_at: string;
     user_groups?:{user_id: string}[];
+    _count?:{user_groups: number};
 }
 
 export interface RedirectUri{

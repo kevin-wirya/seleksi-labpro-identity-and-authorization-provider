@@ -41,6 +41,7 @@ npx prisma db seed
 
 | Komponen | URL / Port | Keterangan |
 | :--- | :--- | :--- |
+| **Control Panel Admin (Next.js)** | `http://localhost:3000` | Admin Management Portal (Users, Groups, Apps, Policies) |
 | **Auth Provider Server API** | `http://localhost:4000` | Core SSO API & Authorization Server |
 | **App A (Relying Application 1)** | `http://localhost:3001` | Client Web Application A |
 | **App B (Relying Application 2)** | `http://localhost:3002` | Client Web Application B |
