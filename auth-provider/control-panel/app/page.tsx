@@ -1,6 +1,6 @@
 'use client';
 import {useState,useEffect} from 'react';
-import {getUsers,createUser,updateUserStatus,getGroups,createGroup,assignUserToGroup,getApplications,createApplication,addRedirectUri,deleteRedirectUri,createPolicy,deletePolicy,User,Group,Application} from '../lib/api';
+import {getUsers,createUser,updateUserStatus,getGroups,createGroup,assignUserToGroup,removeUserFromGroup,getApplications,createApplication,addRedirectUri,deleteRedirectUri,createPolicy,deletePolicy,User,Group,Application} from '../lib/api';
 
 const IconShield=()=>(<svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>);
 const IconBarChart=()=>(<svg className="w-4 h-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>);
@@ -134,6 +134,18 @@ export default function Home(){
         try{
             await assignUserToGroup({user_id:assignUserId,group_id:assignGroupId});
             setSuccess('User assigned to group successfully!');
+            loadData();
+        }catch(err: any){
+            setError(err.message);
+        }
+    };
+
+    const handleRemoveUserFromGroup=async(userId: string, groupId: string)=>{
+        setError('');
+        setSuccess('');
+        try{
+            await removeUserFromGroup({user_id:userId,group_id:groupId});
+            setSuccess('User removed from group successfully!');
             loadData();
         }catch(err: any){
             setError(err.message);
@@ -322,8 +334,11 @@ export default function Home(){
                                                 <td className="p-3">{u.email}</td>
                                                 <td className="p-3">
                                                     {u.user_groups&&u.user_groups.length>0?u.user_groups.map((ug)=>(
-                                                        <span key={ug.group.id} className="bg-zinc-800 text-zinc-300 text-xs px-2 py-0.5 rounded mr-1">
-                                                            {ug.group.name}
+                                                        <span key={ug.group.id} className="bg-zinc-800 border border-zinc-700 text-zinc-300 text-xs px-2 py-0.5 rounded mr-1 inline-flex items-center gap-1.5 font-medium">
+                                                            <span>{ug.group.name}</span>
+                                                            <button onClick={()=>handleRemoveUserFromGroup(u.id,ug.group.id)} className="text-red-400 hover:text-red-300 font-bold hover:bg-red-950/60 rounded px-1 transition" title="Remove user from group">
+                                                                ×
+                                                            </button>
                                                         </span>
                                                     )):<span className="text-zinc-600">-</span>}
                                                 </td>
@@ -513,6 +528,8 @@ export default function Home(){
                                             <tr><td colSpan={4} className="p-4 text-center text-zinc-500">Loading applications...</td></tr>
                                         ):applications.length===0?(
                                             <tr><td colSpan={4} className="p-4 text-center text-zinc-500">No applications registered.</td></tr>
+                                        ):applications.map((app)=>(
+                                            <tr key={app.id} className="hover:bg-zinc-800/50">
                                                 <td className="p-3 font-medium text-white">{app.name}</td>
                                                 <td className="p-3 font-mono text-xs text-sky-400">{app.client_id}</td>
                                                 <td className="p-3">

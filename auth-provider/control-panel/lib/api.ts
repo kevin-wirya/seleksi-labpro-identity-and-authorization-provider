@@ -114,6 +114,17 @@ export async function assignUserToGroup(payload:{user_id: string; group_id: stri
     return json.data;
 }
 
+export async function removeUserFromGroup(payload:{user_id: string; group_id: string}): Promise<any>{
+    const res=await fetch(`${getBaseUrl()}/api/admin/groups/assign`,{
+        method:'DELETE',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(payload),
+    });
+    const json=await res.json();
+    if(!json.success)throw new Error(json.error||'Failed to remove user from group');
+    return json;
+}
+
 export async function getApplications(): Promise<Application[]>{
     const res=await fetch(`${getBaseUrl()}/api/admin/applications`,{cache:'no-store'});
     const json=await res.json();
