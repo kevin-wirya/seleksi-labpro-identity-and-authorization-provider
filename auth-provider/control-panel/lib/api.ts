@@ -143,6 +143,15 @@ export async function addRedirectUri(applicationId: string,redirect_uri: string)
     return json.data;
 }
 
+export async function deleteRedirectUri(applicationId: string,uriId: string): Promise<any>{
+    const res=await fetch(`${getBaseUrl()}/api/admin/applications/${applicationId}/redirect-uris/${uriId}`,{
+        method:'DELETE',
+    });
+    const json=await res.json();
+    if(!json.success)throw new Error(json.error||'Failed to delete redirect URI');
+    return json;
+}
+
 export async function createPolicy(applicationId: string,payload:{group_id: string; effect: string}): Promise<any>{
     const res=await fetch(`${getBaseUrl()}/api/admin/applications/${applicationId}/policies`,{
         method:'POST',
