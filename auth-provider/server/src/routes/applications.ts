@@ -124,16 +124,14 @@ router.post('/:id/policies',async(req: any,res: Response)=>{
     const policyEffect=effect||'allow';
     try{
         const policy=await prisma.$transaction(async(tx: any)=>{
-            const pol=await tx.applicationGroupPolicy.upsert({
+            await tx.applicationGroupPolicy.deleteMany({
                 where:{
-                    application_id_group_id_effect:{
-                        application_id:id,
-                        group_id,
-                        effect:policyEffect,
-                    },
+                    application_id:id,
+                    group_id,
                 },
-                update:{},
-                create:{
+            });
+            const pol=await tx.applicationGroupPolicy.create({
+                data:{
                     application_id:id,
                     group_id,
                     effect:policyEffect,

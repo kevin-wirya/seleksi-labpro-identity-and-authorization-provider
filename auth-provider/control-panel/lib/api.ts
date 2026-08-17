@@ -153,3 +153,12 @@ export async function createPolicy(applicationId: string,payload:{group_id: stri
     if(!json.success)throw new Error(json.error||'Failed to create group policy');
     return json.data;
 }
+
+export async function deletePolicy(applicationId: string,policyId: string): Promise<any>{
+    const res=await fetch(`${getBaseUrl()}/api/admin/applications/${applicationId}/policies/${policyId}`,{
+        method:'DELETE',
+    });
+    const json=await res.json();
+    if(!json.success)throw new Error(json.error||'Failed to delete policy');
+    return json;
+}

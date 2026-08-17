@@ -1,6 +1,6 @@
 'use client';
 import {useState,useEffect} from 'react';
-import {getUsers,createUser,updateUserStatus,getGroups,createGroup,assignUserToGroup,getApplications,createApplication,addRedirectUri,createPolicy,User,Group,Application} from '../lib/api';
+import {getUsers,createUser,updateUserStatus,getGroups,createGroup,assignUserToGroup,getApplications,createApplication,addRedirectUri,createPolicy,deletePolicy,User,Group,Application} from '../lib/api';
 
 const IconShield=()=>(<svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>);
 const IconBarChart=()=>(<svg className="w-4 h-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>);
@@ -180,6 +180,18 @@ export default function Home(){
         try{
             await createPolicy(policyAppId,{group_id:policyGroupId,effect:policyEffect});
             setSuccess('Group Access Policy granted successfully!');
+            loadData();
+        }catch(err: any){
+            setError(err.message);
+        }
+    };
+
+    const handleDeletePolicy=async(appId: string, policyId: string)=>{
+        setError('');
+        setSuccess('');
+        try{
+            await deletePolicy(appId, policyId);
+            setSuccess('Policy revoked successfully!');
             loadData();
         }catch(err: any){
             setError(err.message);
@@ -559,13 +571,14 @@ export default function Home(){
                                             <th className="p-3">Application</th>
                                             <th className="p-3">Allowed Group</th>
                                             <th className="p-3">Effect</th>
+                                            <th className="p-3 text-right">Action</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-zinc-800">
                                         {loading?(
-                                            <tr><td colSpan={3} className="p-4 text-center text-zinc-500">Loading policies...</td></tr>
+                                            <tr><td colSpan={4} className="p-4 text-center text-zinc-500">Loading policies...</td></tr>
                                         ):applications.flatMap((app)=>(app.group_policies||[]).map((p)=>({policy:p,app}))).length===0?(
-                                            <tr><td colSpan={3} className="p-4 text-center text-zinc-500">No policies created yet.</td></tr>
+                                            <tr><td colSpan={4} className="p-4 text-center text-zinc-500">No policies created yet.</td></tr>
                                         ):applications.flatMap((app)=>(app.group_policies||[]).map((p)=>({policy:p,app}))).map(({policy,app})=>(
                                             <tr key={policy.id} className="hover:bg-zinc-800/50">
                                                 <td className="p-3 font-medium text-white">{app.name} ({app.client_id})</td>
@@ -574,6 +587,11 @@ export default function Home(){
                                                     <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${policy.effect==='allow'?'bg-emerald-950 text-emerald-400 border border-emerald-500/30':'bg-red-950 text-red-400 border border-red-500/30'}`}>
                                                         {policy.effect.toUpperCase()}
                                                     </span>
+                                                </td>
+                                                <td className="p-3 text-right">
+                                                    <button onClick={()=>handleDeletePolicy(app.id,policy.id)} className="px-2.5 py-1 text-xs bg-red-950/60 hover:bg-red-900 text-red-300 border border-red-800/80 rounded transition">
+                                                        Revoke
+                                                    </button>
                                                 </td>
                                             </tr>
                                         ))}
