@@ -105,5 +105,17 @@ services:
       db:
         condition: service_healthy
 
+  control-panel:
+    build:
+      context: ./auth-provider/control-panel
+      dockerfile: Dockerfile
+    container_name: auth_provider_control_panel
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_AUTH_PROVIDER_URL: http://localhost:4000
+    depends_on:
+      - auth-provider
+
 volumes:
   pgdata:

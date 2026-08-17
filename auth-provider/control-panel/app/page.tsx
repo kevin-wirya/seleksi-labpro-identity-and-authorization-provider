@@ -13,6 +13,8 @@ const IconPlus=()=>(<svg className="w-4 h-4 text-sky-400" fill="none" viewBox="0
 const IconUserPlus=()=>(<svg className="w-4 h-4 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>);
 const IconRefresh=()=>(<svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>);
 const IconLink=()=>(<svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>);
+const IconPulse=()=>(<svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>);
+const IconExternal=()=>(<svg className="w-4 h-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>);
 
 export default function Home(){
     const[activeTab,setActiveTab]=useState<'users'|'groups'|'apps'|'policies'>('users');
@@ -196,12 +198,21 @@ export default function Home(){
                             Central Identity Management and Access Control
                         </p>
                     </div>
-                    <div className="flex flex-wrap gap-3 mt-4 md:mt-0">
-                        <a href="http://localhost:4000/metrics-ui" target="_blank" rel="noopener noreferrer" className="bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-200 text-xs px-4 py-2 rounded-lg font-medium transition flex items-center gap-2">
+                    <div className="flex flex-wrap gap-2.5 mt-4 md:mt-0">
+                        <a href="http://localhost:4000/metrics-ui" target="_blank" rel="noopener noreferrer" className="bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-200 text-xs px-3.5 py-2 rounded-lg font-medium transition flex items-center gap-2">
                             <IconBarChart/> Observability
                         </a>
-                        <a href="http://localhost:4000/api/auth/mfa-ui" target="_blank" rel="noopener noreferrer" className="bg-amber-950 hover:bg-amber-900 border border-amber-500/40 text-amber-300 text-xs px-4 py-2 rounded-lg font-medium transition flex items-center gap-2">
+                        <a href="http://localhost:4000/api/auth/mfa-ui" target="_blank" rel="noopener noreferrer" className="bg-amber-950/60 hover:bg-amber-900/80 border border-amber-500/40 text-amber-300 text-xs px-3.5 py-2 rounded-lg font-medium transition flex items-center gap-2">
                             <IconLock/> MFA Portal
+                        </a>
+                        <a href="http://localhost:3001" target="_blank" rel="noopener noreferrer" className="bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-200 text-xs px-3.5 py-2 rounded-lg font-medium transition flex items-center gap-2">
+                            <IconExternal/> App A
+                        </a>
+                        <a href="http://localhost:3002" target="_blank" rel="noopener noreferrer" className="bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-200 text-xs px-3.5 py-2 rounded-lg font-medium transition flex items-center gap-2">
+                            <IconExternal/> App B
+                        </a>
+                        <a href="http://localhost:4000/health/ready" target="_blank" rel="noopener noreferrer" className="bg-emerald-950/60 hover:bg-emerald-900/80 border border-emerald-500/40 text-emerald-300 text-xs px-3.5 py-2 rounded-lg font-medium transition flex items-center gap-2">
+                            <IconPulse/> Health Probe
                         </a>
                     </div>
                 </header>
