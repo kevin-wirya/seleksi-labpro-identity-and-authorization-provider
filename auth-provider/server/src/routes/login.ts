@@ -14,16 +14,18 @@ function renderLoginPage(props: {
     clientId?: string;
     redirectUri?: string;
     state?: string;
+    codeChallenge?: string;
+    codeChallengeMethod?: string;
     user?: any;
 }) {
-    const { error, email = '', clientId = '', redirectUri = '', state = '', user } = props;
+    const { error, email = '', clientId = '', redirectUri = '', state = '', codeChallenge = '', codeChallengeMethod = '', user } = props;
 
     let appBadgeHtml = '';
     if (clientId) {
         appBadgeHtml = `
-        <div style="margin-bottom: 20px; padding: 10px 14px; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 8px;">
-            <svg style="width: 18px; height: 18px; color: #38bdf8;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-            <span style="font-size: 13px; font-weight: 700; color: #38bdf8;">Authenticating for ${clientId.toUpperCase()}</span>
+        <div style="margin-bottom: 20px; padding: 10px 14px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+            <svg style="width: 18px; height: 18px; color: #34d399;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            <span style="font-size: 13px; font-weight: 700; color: #34d399;">Authenticating for ${clientId.toUpperCase()}</span>
         </div>`;
     }
 
@@ -37,30 +39,30 @@ function renderLoginPage(props: {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SSO Central Session - Auth Provider</title>
-    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700;800&display=swap" rel="stylesheet">
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Lato', sans-serif; }
-        body { background-color: #09090b; color: #f4f4f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
-        .card { background-color: #18181b; border: 1px solid #27272a; border-radius: 20px; padding: 36px; max-width: 440px; width: 100%; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); text-align: center; }
-        .icon-box { width: 56px; height: 56px; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 16px; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; }
-        h1 { font-size: 22px; font-weight: 900; color: #ffffff; margin-bottom: 6px; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
+        body { background-color: #060907; color: #f4f4f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; background-image: radial-gradient(circle at 50% 20%, rgba(16, 185, 129, 0.12) 0%, transparent 60%); }
+        .card { background-color: #0f1712; border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 24px; padding: 36px; max-width: 440px; width: 100%; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.7), 0 0 40px rgba(16, 185, 129, 0.08); text-align: center; backdrop-filter: blur(16px); }
+        .icon-box { width: 60px; height: 60px; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 18px; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 20px rgba(16, 185, 129, 0.15); }
+        h1 { font-size: 22px; font-weight: 800; color: #ffffff; margin-bottom: 6px; letter-spacing: -0.5px; }
         p.subtitle { font-size: 13px; color: #a1a1aa; margin-bottom: 24px; }
-        .user-info { background: #09090b; border: 1px solid #27272a; border-radius: 12px; padding: 16px; text-align: left; margin-bottom: 24px; }
-        .info-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; }
+        .user-info { background: #060907; border: 1px solid rgba(16, 185, 129, 0.15); border-radius: 14px; padding: 18px; text-align: left; margin-bottom: 24px; }
+        .info-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 13px; }
         .info-row:last-child { margin-bottom: 0; }
-        .label { color: #71717a; }
+        .label { color: #71717a; font-weight: 600; }
         .value { color: #ffffff; font-weight: 700; }
-        .badge { background: rgba(16, 185, 129, 0.1); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2); padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
-        .btn-logout { background: #dc2626; color: #ffffff; border: none; padding: 12px; width: 100%; border-radius: 12px; font-weight: 700; font-size: 14px; cursor: pointer; transition: background 0.2s; }
-        .btn-logout:hover { background: #b91c1c; }
-        .btn-continue { background: #0284c7; color: #ffffff; text-decoration: none; padding: 12px; width: 100%; border-radius: 12px; font-weight: 700; font-size: 14px; display: block; margin-bottom: 12px; transition: background 0.2s; }
-        .btn-continue:hover { background: #0369a1; }
+        .badge { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); padding: 3px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+        .btn-logout { background: #dc2626; color: #ffffff; border: none; padding: 13px; width: 100%; border-radius: 12px; font-weight: 700; font-size: 14px; cursor: pointer; transition: all 0.2s; }
+        .btn-logout:hover { background: #b91c1c; transform: translateY(-1px); }
+        .btn-continue { background: linear-gradient(135deg, #10b981 0%, #047857 100%); color: #ffffff; text-decoration: none; padding: 13px; width: 100%; border-radius: 12px; font-weight: 700; font-size: 14px; display: block; margin-bottom: 12px; transition: all 0.2s; box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3); }
+        .btn-continue:hover { opacity: 0.95; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4); }
     </style>
 </head>
 <body>
     <div class="card">
         <div class="icon-box">
-            <svg style="width: 28px; height: 28px; color: #38bdf8;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+            <svg style="width: 30px; height: 30px; color: #34d399;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
         </div>
         <h1>Central SSO Session Active</h1>
         <p class="subtitle">You are logged in to the Identity Provider</p>
@@ -88,28 +90,28 @@ function renderLoginPage(props: {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sign In - SSO Identity Provider</title>
-    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700;800&display=swap" rel="stylesheet">
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Lato', sans-serif; }
-        body { background-color: #09090b; color: #f4f4f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
-        .card { background-color: #18181b; border: 1px solid #27272a; border-radius: 20px; padding: 36px; max-width: 420px; width: 100%; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.6); }
-        .icon-box { width: 56px; height: 56px; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 16px; margin: 0 auto 16px; display: flex; align-items: center; justify-content: center; }
-        h1 { font-size: 24px; font-weight: 900; color: #ffffff; text-align: center; margin-bottom: 6px; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
+        body { background-color: #060907; color: #f4f4f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; background-image: radial-gradient(circle at 50% 20%, rgba(16, 185, 129, 0.12) 0%, transparent 60%); }
+        .card { background-color: #0f1712; border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 24px; padding: 36px; max-width: 420px; width: 100%; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.7), 0 0 40px rgba(16, 185, 129, 0.08); backdrop-filter: blur(16px); }
+        .icon-box { width: 60px; height: 60px; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 18px; margin: 0 auto 16px; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 20px rgba(16, 185, 129, 0.15); }
+        h1 { font-size: 24px; font-weight: 800; color: #ffffff; text-align: center; margin-bottom: 6px; letter-spacing: -0.5px; }
         p.subtitle { font-size: 13px; color: #a1a1aa; text-align: center; margin-bottom: 24px; }
         .error-alert { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); color: #f87171; font-size: 13px; padding: 12px; border-radius: 10px; margin-bottom: 20px; text-align: center; }
         .form-group { margin-bottom: 18px; text-align: left; }
         label { display: block; font-size: 12px; font-weight: 700; color: #a1a1aa; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
-        input[type="email"], input[type="password"] { width: 100%; background: #09090b; border: 1px solid #27272a; border-radius: 10px; padding: 12px 14px; font-size: 14px; color: #ffffff; outline: none; transition: border-color 0.2s; }
-        input[type="email"]:focus, input[type="password"]:focus { border-color: #0284c7; }
-        .btn-submit { background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #ffffff; border: none; padding: 13px; width: 100%; border-radius: 10px; font-weight: 700; font-size: 14px; cursor: pointer; transition: opacity 0.2s; margin-top: 8px; }
-        .btn-submit:hover { opacity: 0.9; }
-        .footer-text { font-size: 11px; color: #52525b; text-align: center; margin-top: 24px; }
+        input[type="email"], input[type="password"] { width: 100%; background: #060907; border: 1px solid #1f2923; border-radius: 12px; padding: 12px 14px; font-size: 14px; color: #ffffff; outline: none; transition: all 0.2s; }
+        input[type="email"]:focus, input[type="password"]:focus { border-color: #10b981; box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2); }
+        .btn-submit { background: linear-gradient(135deg, #10b981 0%, #047857 100%); color: #ffffff; border: none; padding: 14px; width: 100%; border-radius: 12px; font-weight: 700; font-size: 14px; cursor: pointer; transition: all 0.2s; margin-top: 8px; box-shadow: 0 4px 16px rgba(16, 185, 129, 0.35); }
+        .btn-submit:hover { opacity: 0.95; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(16, 185, 129, 0.45); }
+        .footer-text { font-size: 11px; color: #52525b; text-align: center; margin-top: 24px; font-weight: 600; }
     </style>
 </head>
 <body>
     <div class="card">
         <div class="icon-box">
-            <svg style="width: 28px; height: 28px; color: #38bdf8;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+            <svg style="width: 30px; height: 30px; color: #34d399;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
         </div>
         <h1>Identity Provider</h1>
         <p class="subtitle">Single Sign-On Authentication Center</p>
@@ -121,6 +123,8 @@ function renderLoginPage(props: {
             <input type="hidden" name="client_id" value="${clientId}">
             <input type="hidden" name="redirect_uri" value="${redirectUri}">
             <input type="hidden" name="state" value="${state}">
+            <input type="hidden" name="code_challenge" value="${codeChallenge}">
+            <input type="hidden" name="code_challenge_method" value="${codeChallengeMethod}">
 
             <div class="form-group">
                 <label for="email">Email Address</label>
@@ -147,6 +151,8 @@ router.get('/', async (req: any, res: Response) => {
     const clientId = (req.query.client_id || '') as string;
     const redirectUri = (req.query.redirect_uri || '') as string;
     const state = (req.query.state || '') as string;
+    const codeChallenge = (req.query.code_challenge || '') as string;
+    const codeChallengeMethod = (req.query.code_challenge_method || '') as string;
 
     const rawSessionToken = req.cookies?.sso_session;
     if (rawSessionToken) {
@@ -167,20 +173,20 @@ router.get('/', async (req: any, res: Response) => {
                 },
             });
             if (session && session.user && session.user.status === 'active') {
-                return res.send(renderLoginPage({ user: session.user, clientId, redirectUri, state }));
+                return res.send(renderLoginPage({ user: session.user, clientId, redirectUri, state, codeChallenge, codeChallengeMethod }));
             }
         } catch (e) {
             // fallthrough
         }
     }
 
-    res.send(renderLoginPage({ clientId, redirectUri, state }));
+    res.send(renderLoginPage({ clientId, redirectUri, state, codeChallenge, codeChallengeMethod }));
 });
 
 // POST /login
 router.post('/', async (req: any, res: Response) => {
     const prisma = req.prisma;
-    const { email, password, client_id = '', redirect_uri = '', state = '' } = req.body;
+    const { email, password, client_id = '', redirect_uri = '', state = '', code_challenge = '', code_challenge_method = '' } = req.body;
 
     if (!email || !password) {
         return res.status(400).send(renderLoginPage({
@@ -278,7 +284,9 @@ router.post('/', async (req: any, res: Response) => {
 
         // If client_id and redirect_uri were provided, forward to authorize endpoint
         if (client_id && redirect_uri) {
-            const authUrl = `/api/auth/authorize?client_id=${encodeURIComponent(client_id)}&redirect_uri=${encodeURIComponent(redirect_uri)}&state=${encodeURIComponent(state)}`;
+            const cc = code_challenge ? `&code_challenge=${encodeURIComponent(code_challenge)}` : '';
+            const ccm = code_challenge_method ? `&code_challenge_method=${encodeURIComponent(code_challenge_method)}` : '';
+            const authUrl = `/api/auth/authorize?client_id=${encodeURIComponent(client_id)}&redirect_uri=${encodeURIComponent(redirect_uri)}&state=${encodeURIComponent(state)}${cc}${ccm}`;
             return res.redirect(302, authUrl);
         }
 

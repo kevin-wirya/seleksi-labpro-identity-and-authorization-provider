@@ -128,7 +128,9 @@ router.get('/authorize', async (req: any, res: Response) => {
         }
         const rawSessionToken = req.cookies?.sso_session;
         if (!rawSessionToken) {
-            return res.redirect(302, `/login?client_id=${encodeURIComponent(clientIdStr)}&redirect_uri=${encodeURIComponent(redirectUriStr)}&state=${encodeURIComponent(stateStr)}`);
+            const cc = codeChallengeStr ? `&code_challenge=${encodeURIComponent(codeChallengeStr)}` : '';
+            const ccm = codeChallengeMethodStr ? `&code_challenge_method=${encodeURIComponent(codeChallengeMethodStr)}` : '';
+            return res.redirect(302, `/login?client_id=${encodeURIComponent(clientIdStr)}&redirect_uri=${encodeURIComponent(redirectUriStr)}&state=${encodeURIComponent(stateStr)}${cc}${ccm}`);
         }
         const session_token_hash = hashSessionToken(rawSessionToken);
         const session = await prisma.ssoSession.findFirst({
@@ -147,7 +149,9 @@ router.get('/authorize', async (req: any, res: Response) => {
         });
         if (!session || !session.user || session.user.status !== 'active') {
             res.clearCookie('sso_session', { path: '/' });
-            return res.redirect(302, `/login?client_id=${encodeURIComponent(clientIdStr)}&redirect_uri=${encodeURIComponent(redirectUriStr)}&state=${encodeURIComponent(stateStr)}`);
+            const cc = codeChallengeStr ? `&code_challenge=${encodeURIComponent(codeChallengeStr)}` : '';
+            const ccm = codeChallengeMethodStr ? `&code_challenge_method=${encodeURIComponent(codeChallengeMethodStr)}` : '';
+            return res.redirect(302, `/login?client_id=${encodeURIComponent(clientIdStr)}&redirect_uri=${encodeURIComponent(redirectUriStr)}&state=${encodeURIComponent(stateStr)}${cc}${ccm}`);
         }
         const userGroupIds = session.user.user_groups.map((ug: any) => ug.group_id);
         const policies = app.group_policies;

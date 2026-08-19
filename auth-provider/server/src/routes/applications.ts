@@ -151,7 +151,8 @@ router.post('/:id/redirect-uris',async(req: any,res: Response)=>{
 // DELETE /api/admin/applications/:id/redirect-uris/:uriId
 router.delete('/:id/redirect-uris/:uriId',async(req: any,res: Response)=>{
     const prisma=req.prisma;
-    const{uriId}=req.params;
+    const{id,uriId}=req.params;
+    try{
         const uri=await prisma.applicationRedirectUri.findUnique({where:{id:uriId}});
         await prisma.applicationRedirectUri.delete({where:{id:uriId}});
         if(uri){

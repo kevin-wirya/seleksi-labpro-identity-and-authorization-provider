@@ -1,4 +1,5 @@
 import express, { Request, Response } from 'express';
+import { revokeNonCompliantSessions } from '../utils/policyRevocation';
 const router=express.Router();
 
 // GET /api/admin/groups
@@ -76,6 +77,37 @@ router.put('/:id',async(req: any,res: Response)=>{
     }
 });
 
+// DELETE /api/admin/groups/assign
+router.delete('/assign',async(req: any,res: Response)=>{
+    const prisma=req.prisma;
+    const{user_id,group_id}=req.body;
+    if(!user_id||!group_id){
+        return res.status(400).json({success:false,error:'user_id and group_id are required'});
+    }
+    try{
+        await prisma.$transaction(async(tx: any)=>{
+            await tx.userGroup.delete({
+                where:{
+                    user_id_group_id:{user_id,group_id},
+                },
+            });
+            await tx.auditLog.create({
+                data:{
+                    event_type:'user_removed_from_group',
+                    actor_id:'admin',
+                    user_id,
+                    result:'success',
+                    metadata:JSON.stringify({group_id}),
+                },
+            });
+            await revokeNonCompliantSessions(tx, undefined, user_id);
+        });
+        res.json({success:true,message:'User removed from group and impacted sessions revoked'});
+    }catch(error: any){
+        res.status(500).json({success:false,error:error.message});
+    }
+});
+
 // DELETE /api/admin/groups/:id
 router.delete('/:id',async(req: any,res: Response)=>{
     const prisma=req.prisma;
@@ -134,37 +166,6 @@ router.post('/assign',async(req: any,res: Response)=>{
     }
 });
 
-import { revokeNonCompliantSessions } from '../utils/policyRevocation';
 
-// DELETE /api/admin/groups/assign
-router.delete('/assign',async(req: any,res: Response)=>{
-    const prisma=req.prisma;
-    const{user_id,group_id}=req.body;
-    if(!user_id||!group_id){
-        return res.status(400).json({success:false,error:'user_id and group_id are required'});
-    }
-    try{
-        await prisma.$transaction(async(tx: any)=>{
-            await tx.userGroup.delete({
-                where:{
-                    user_id_group_id:{user_id,group_id},
-                },
-            });
-            await tx.auditLog.create({
-                data:{
-                    event_type:'user_removed_from_group',
-                    actor_id:'admin',
-                    user_id,
-                    result:'success',
-                    metadata:JSON.stringify({group_id}),
-                },
-            });
-            await revokeNonCompliantSessions(tx, undefined, user_id);
-        });
-        res.json({success:true,message:'User removed from group and impacted sessions revoked'});
-    }catch(error: any){
-        res.status(500).json({success:false,error:error.message});
-    }
-});
 
 export default router;
