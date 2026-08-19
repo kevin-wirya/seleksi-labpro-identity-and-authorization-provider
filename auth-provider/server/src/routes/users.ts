@@ -181,6 +181,12 @@ router.put('/:id',async(req: any,res: Response)=>{
                 select:{id:true,name:true,email:true,status:true,updated_at:true},
             });
             if(password||status==='inactive'){
+                if(password){
+                    await tx.ssoSession.updateMany({
+                        where:{user_id:id,status:'active'},
+                        data:{status:'revoked'},
+                    });
+                }
                 await tx.event.create({
                     data:{
                         event_type:password?'PasswordChanged':'UserUpdated',

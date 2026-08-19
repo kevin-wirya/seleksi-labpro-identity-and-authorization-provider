@@ -75,6 +75,17 @@ export async function createUser(payload:{name: string; email: string; password:
     return json.data;
 }
 
+export async function updateUser(userId: string,data:{name?:string;email?:string;password?:string;status?:string}): Promise<User>{
+    const res=await fetch(`${getBaseUrl()}/api/admin/users/${userId}`,{
+        method:'PUT',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(data),
+    });
+    const json=await res.json();
+    if(!json.success)throw new Error(json.error||'Failed to update user');
+    return json.data;
+}
+
 export async function updateUserStatus(userId: string,status: 'active' | 'inactive'): Promise<User>{
     const res=await fetch(`${getBaseUrl()}/api/admin/users/${userId}/status`,{
         method:'PATCH',

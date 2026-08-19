@@ -1,6 +1,6 @@
 'use client';
 import {useState,useEffect} from 'react';
-import {getUsers,createUser,updateUserStatus,toggleUserMfa,getGroups,createGroup,assignUserToGroup,removeUserFromGroup,getApplications,createApplication,addRedirectUri,deleteRedirectUri,createPolicy,deletePolicy,getAuditLogs,User,Group,Application,AuditLogItem} from '../lib/api';
+import {getUsers,createUser,updateUser,updateUserStatus,toggleUserMfa,getGroups,createGroup,assignUserToGroup,removeUserFromGroup,getApplications,createApplication,addRedirectUri,deleteRedirectUri,createPolicy,deletePolicy,getAuditLogs,User,Group,Application,AuditLogItem} from '../lib/api';
 
 const IconShield=()=>(<svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>);
 const IconBarChart=()=>(<svg className="w-4 h-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>);
@@ -60,6 +60,8 @@ export default function Home(){
     const[policyAppId,setPolicyAppId]=useState<string>('');
     const[policyGroupId,setPolicyGroupId]=useState<string>('');
     const[policyEffect,setPolicyEffect]=useState<'allow'|'deny'>('allow');
+    const[auditLogPage,setAuditLogPage]=useState<number>(1);
+    const[auditLogLimit,setAuditLogLimit]=useState<number>(10);
 
     useEffect(()=>{
         loadData();
@@ -127,6 +129,20 @@ export default function Home(){
         try{
             await toggleUserMfa(userId,nextMfa);
             setSuccess(`MFA status updated to ${nextMfa?'Enabled':'Disabled'}!`);
+            loadData();
+        }catch(err: any){
+            setError(err.message);
+        }
+    };
+
+    const handleEditPassword=async(userId: string,userName: string)=>{
+        const newPass=prompt(`Enter new password for user "${userName}":`);
+        if(!newPass||!newPass.trim())return;
+        setError('');
+        setSuccess('');
+        try{
+            await updateUser(userId,{password:newPass.trim()});
+            setSuccess(`Password for "${userName}" updated successfully! All active sessions revoked.`);
             loadData();
         }catch(err: any){
             setError(err.message);
@@ -243,6 +259,12 @@ export default function Home(){
             setError(err.message);
         }
     };
+
+    const totalLogs=auditLogs.length;
+    const totalLogPages=Math.max(1,Math.ceil(totalLogs/auditLogLimit));
+    const currentLogPage=Math.min(Math.max(1,auditLogPage),totalLogPages);
+    const startLogIdx=(currentLogPage-1)*auditLogLimit;
+    const paginatedLogs=auditLogs.slice(startLogIdx,startLogIdx+auditLogLimit);
 
     return (
         <div className="min-h-screen bg-black text-slate-100 p-6">
@@ -383,6 +405,9 @@ export default function Home(){
                                                     </span>
                                                 </td>
                                                 <td className="p-3 text-right space-x-2">
+                                                    <button onClick={()=>handleEditPassword(u.id,u.name)} className="text-xs text-sky-400 hover:underline font-medium">
+                                                        Edit Password
+                                                    </button>
                                                     <button onClick={()=>handleToggleStatus(u.id,u.status)} className="text-xs text-amber-400 hover:underline font-medium">
                                                         Toggle Status
                                                     </button>
@@ -675,13 +700,33 @@ export default function Home(){
                 {/* TAB 5: AUDIT LOGS */}
                 {activeTab==='logs'&&(
                     <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl shadow-lg">
-                        <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                                <IconPulse/> Central Security Audit Logs
-                            </h2>
-                            <button onClick={loadData} className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-xs font-medium text-zinc-300 rounded-lg flex items-center gap-1.5 transition">
-                                <IconRefresh/> Refresh Logs
-                            </button>
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+                            <div>
+                                <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                                    <IconPulse/> Central Security Audit Logs
+                                </h2>
+                                <p className="text-xs text-zinc-400 mt-1">Real-time system authentication and security event log stream</p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-1.5 text-xs text-zinc-400">
+                                    <span>Show:</span>
+                                    <select
+                                        value={auditLogLimit}
+                                        onChange={(e)=>{
+                                            setAuditLogLimit(Number(e.target.value));
+                                            setAuditLogPage(1);
+                                        }}
+                                        className="bg-zinc-950 border border-zinc-800 text-zinc-200 text-xs rounded-lg px-2 py-1 focus:outline-none focus:border-sky-500 font-mono"
+                                    >
+                                        <option value={10}>10 per page</option>
+                                        <option value={20}>20 per page</option>
+                                        <option value={50}>50 per page</option>
+                                    </select>
+                                </div>
+                                <button onClick={loadData} className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-xs font-medium text-zinc-300 rounded-lg flex items-center gap-1.5 transition">
+                                    <IconRefresh/> Refresh Logs
+                                </button>
+                            </div>
                         </div>
                         <div className="overflow-x-auto">
                             <table className="w-full text-left text-sm text-zinc-300">
@@ -697,9 +742,9 @@ export default function Home(){
                                 <tbody className="divide-y divide-zinc-800/80">
                                     {loading?(
                                         <tr><td colSpan={5} className="p-4 text-center text-zinc-500">Loading audit logs...</td></tr>
-                                    ):auditLogs.length===0?(
+                                    ):paginatedLogs.length===0?(
                                         <tr><td colSpan={5} className="p-4 text-center text-zinc-500">No audit logs recorded yet.</td></tr>
-                                    ):auditLogs.map((log)=>(
+                                    ):paginatedLogs.map((log)=>(
                                         <tr key={log.id} className="hover:bg-zinc-800/50">
                                             <td className="p-3 text-zinc-400 text-xs font-mono whitespace-nowrap">{formatDateGMT7(log.created_at)}</td>
                                             <td className="p-3 font-semibold text-sky-400 font-mono">{log.event_type}</td>
@@ -714,6 +759,48 @@ export default function Home(){
                                     ))}
                                 </tbody>
                             </table>
+                        </div>
+
+                        {/* PAGINATION CONTROLS */}
+                        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-6 pt-4 border-t border-zinc-800 text-xs text-zinc-400">
+                            <div>
+                                Showing <span className="font-semibold text-zinc-200">{paginatedLogs.length>0?startLogIdx+1:0}</span> to <span className="font-semibold text-zinc-200">{Math.min(startLogIdx+auditLogLimit,totalLogs)}</span> of <span className="font-semibold text-zinc-200">{totalLogs}</span> entries
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <button
+                                    disabled={currentLogPage<=1}
+                                    onClick={()=>setAuditLogPage(prev=>Math.max(1,prev-1))}
+                                    className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 disabled:hover:bg-zinc-800 text-zinc-200 rounded-lg font-medium transition"
+                                >
+                                    ◀ Previous
+                                </button>
+
+                                <div className="flex items-center gap-1.5">
+                                    <span>Page</span>
+                                    <input
+                                        type="number"
+                                        min={1}
+                                        max={totalLogPages}
+                                        value={currentLogPage}
+                                        onChange={(e)=>{
+                                            const val=parseInt(e.target.value,10);
+                                            if(!isNaN(val)){
+                                                setAuditLogPage(Math.min(Math.max(1,val),totalLogPages));
+                                            }
+                                        }}
+                                        className="w-14 bg-zinc-950 border border-zinc-800 rounded-lg text-center py-1 text-xs text-white focus:outline-none focus:border-sky-500 font-mono"
+                                    />
+                                    <span>of {totalLogPages}</span>
+                                </div>
+
+                                <button
+                                    disabled={currentLogPage>=totalLogPages}
+                                    onClick={()=>setAuditLogPage(prev=>Math.min(totalLogPages,prev+1))}
+                                    className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 disabled:hover:bg-zinc-800 text-zinc-200 rounded-lg font-medium transition"
+                                >
+                                    Next ▶
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}
