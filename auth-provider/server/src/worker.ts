@@ -33,32 +33,46 @@ async function startWorker(){
                     if(!webhookUrl)continue;
                     let isSuccess=false;
                     let errorMsg: string | null=null;
-                    try{
-                        const res=await fetch(webhookUrl,{
-                            method:'POST',
-                            headers:{'Content-Type':'application/json'},
-                            body:JSON.stringify({
-                                event_id:eventData.id,
-                                event_type:eventData.event_type,
-                                user_id:eventData.user_id,
-                                central_session_id:eventData.central_session_id,
-                                payload:eventData.payload,
-                                timestamp:eventData.created_at,
-                            }),
-                        });
-                        if(res.ok){
-                            isSuccess=true;
-                            console.log(`✅ Webhook delivered to ${app.name} (${res.status})`);
-                        }else{
-                            errorMsg=`HTTP ${res.status}`;
-                            allSuccess=false;
-                            console.warn(`⚠️ Webhook to ${app.name} returned status ${res.status}`);
-                        }
-                    }catch(err: any){
-                        errorMsg=err.message;
-                        allSuccess=false;
-                        console.error(`❌ Webhook to ${app.name} failed:`,err.message);
+
+                    const targetUrls: string[] = [webhookUrl];
+                    if (webhookUrl.includes('localhost:3001')) {
+                        targetUrls.unshift(webhookUrl.replace('localhost:3001', 'app-a:3001'));
+                    } else if (webhookUrl.includes('localhost:3002')) {
+                        targetUrls.unshift(webhookUrl.replace('localhost:3002', 'app-b:3002'));
                     }
+
+                    for (const targetUrl of targetUrls) {
+                        try{
+                            const res=await fetch(targetUrl,{
+                                method:'POST',
+                                headers:{'Content-Type':'application/json'},
+                                body:JSON.stringify({
+                                    event_id:eventData.id,
+                                    event_type:eventData.event_type,
+                                    user_id:eventData.user_id,
+                                    central_session_id:eventData.central_session_id,
+                                    payload:eventData.payload,
+                                    timestamp:eventData.created_at,
+                                }),
+                            });
+                            if(res.ok){
+                                isSuccess=true;
+                                console.log(`✅ Webhook delivered to ${app.name} at ${targetUrl} (${res.status})`);
+                                break;
+                            }else{
+                                errorMsg=`HTTP ${res.status}`;
+                                console.warn(`⚠️ Webhook to ${app.name} at ${targetUrl} returned status ${res.status}`);
+                            }
+                        }catch(err: any){
+                            errorMsg=err.message;
+                            console.error(`❌ Webhook to ${app.name} at ${targetUrl} failed:`,err.message);
+                        }
+                    }
+
+                    if (!isSuccess) {
+                        allSuccess=false;
+                    }
+
                     await prisma.eventDelivery.create({
                         data:{
                             event_id:eventData.id,
@@ -66,7 +80,7 @@ async function startWorker(){
                             status:isSuccess?'succeeded':'failed',
                             attempt_count:1,
                             last_attempt_at:new Date(),
-                            last_error:errorMsg,
+                            last_error:isSuccess?null:errorMsg,
                         },
                     });
                 }
