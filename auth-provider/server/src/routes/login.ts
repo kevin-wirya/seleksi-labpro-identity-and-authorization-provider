@@ -184,16 +184,16 @@ router.get('/', async (req: any, res: Response) => {
 });
 
 // POST /login
-router.post('/', async (req: any, res: Response) => {
-    const prisma = req.prisma;
-    const { email, password, client_id = '', redirect_uri = '', state = '', code_challenge = '', code_challenge_method = '' } = req.body;
+router.post('/',async(req: any,res: Response)=>{
+    const prisma=req.prisma;
+    const{email,password,client_id='',redirect_uri='',state='',code_challenge='',code_challenge_method=''}=req.body;
 
-    if (!email || !password) {
+    if(!email||!password){
         return res.status(400).send(renderLoginPage({
-            error: 'Email and password are required',
+            error:'Email and password are required',
             email,
-            clientId: client_id,
-            redirectUri: redirect_uri,
+            clientId:client_id,
+            redirectUri:redirect_uri,
             state,
         }));
     }
@@ -283,11 +283,11 @@ router.post('/', async (req: any, res: Response) => {
         });
 
         // If client_id and redirect_uri were provided, forward to authorize endpoint
-        if (client_id && redirect_uri) {
-            const cc = code_challenge ? `&code_challenge=${encodeURIComponent(code_challenge)}` : '';
-            const ccm = code_challenge_method ? `&code_challenge_method=${encodeURIComponent(code_challenge_method)}` : '';
-            const authUrl = `/api/auth/authorize?client_id=${encodeURIComponent(client_id)}&redirect_uri=${encodeURIComponent(redirect_uri)}&state=${encodeURIComponent(state)}${cc}${ccm}`;
-            return res.redirect(302, authUrl);
+        if(client_id&&redirect_uri){
+            const cc=code_challenge?`&code_challenge=${encodeURIComponent(code_challenge)}`:'';
+            const ccm=code_challenge_method?`&code_challenge_method=${encodeURIComponent(code_challenge_method)}`:'';
+            const authUrl=`/api/auth/authorize?client_id=${encodeURIComponent(client_id)}&redirect_uri=${encodeURIComponent(redirect_uri)}&state=${encodeURIComponent(state)}${cc}${ccm}`;
+            return res.redirect(302,authUrl);
         }
 
         // Otherwise show central session status page

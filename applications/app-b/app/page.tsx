@@ -3,6 +3,11 @@ import Link from 'next/link';
 import crypto from 'node:crypto';
 import { prisma } from '@/lib/prisma';
 
+function formatDateGMT7(dateInput: Date | string){
+    if(!dateInput)return '-';
+    return new Date(dateInput).toLocaleString('en-GB',{timeZone:'Asia/Jakarta'})+' GMT+7';
+}
+
 function ShieldIcon() {
     return (
         <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -129,8 +134,8 @@ export default async function Home() {
                             <div className="space-y-1.5 text-zinc-300">
                                 <p><span className="text-zinc-500">Status:</span> <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded text-xs font-bold uppercase">{localSession.status}</span></p>
                                 <p className="truncate"><span className="text-zinc-500">Session ID:</span> <span className="font-mono text-xs text-zinc-400">{localSession.id}</span></p>
-                                <p><span className="text-zinc-500">Created:</span> <span className="text-zinc-300">{new Date(localSession.created_at).toLocaleString()}</span></p>
-                                <p><span className="text-zinc-500">Expires:</span> <span className="text-zinc-300">{new Date(localSession.expires_at).toLocaleString()}</span></p>
+                                <p><span className="text-zinc-500">Created:</span> <span className="text-zinc-300">{formatDateGMT7(localSession.created_at)}</span></p>
+                                <p><span className="text-zinc-500">Expires:</span> <span className="text-zinc-300">{formatDateGMT7(localSession.expires_at)}</span></p>
                             </div>
                         </div>
                     </div>
@@ -159,7 +164,7 @@ export default async function Home() {
                                     <tbody className="divide-y divide-zinc-800/80 bg-zinc-900/40">
                                         {activityLogs.map((log) => (
                                             <tr key={log.id} className="hover:bg-zinc-800/40 transition-colors">
-                                                <td className="p-3 text-zinc-400 text-xs whitespace-nowrap">{new Date(log.created_at).toLocaleString()}</td>
+                                                <td className="p-3 text-zinc-400 text-xs whitespace-nowrap">{formatDateGMT7(log.created_at)}</td>
                                                 <td className="p-3 font-semibold text-purple-300">{log.event_type}</td>
                                                 <td className="p-3 font-mono text-xs text-zinc-400">{log.id.substring(0, 13)}...</td>
                                                 <td className="p-3">
@@ -199,7 +204,7 @@ export default async function Home() {
                                                 <td className="p-3 font-mono text-xs text-zinc-400">{evt.event_id}</td>
                                                 <td className="p-3 font-medium text-zinc-200">{evt.event_type}</td>
                                                 <td className="p-3"><span className="px-2 py-0.5 text-xs bg-emerald-500/10 text-emerald-400 rounded border border-emerald-500/20">{evt.result}</span></td>
-                                                <td className="p-3 text-zinc-400 text-xs">{new Date(evt.processed_at).toLocaleString()}</td>
+                                                <td className="p-3 text-zinc-400 text-xs">{formatDateGMT7(evt.processed_at)}</td>
                                             </tr>
                                         ))}
                                     </tbody>

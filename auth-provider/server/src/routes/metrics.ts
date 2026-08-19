@@ -94,80 +94,91 @@ router.get('/ui',(req: Request,res: Response)=>{
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Auth Provider - Real-Time Observability Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700;900&display=swap" rel="stylesheet">
     <style>
-        *{box-sizing:border-box;margin:0;padding:0;}
-        body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,Cantarell,sans-serif;background:#000000;color:#f8fafc;padding:24px;}
-        .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #1f1f23;}
-        .title{font-size:24px;font-weight:700;color:#ffffff;display:flex;align-items:center;gap:10px;}
-        .badge{padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;}
-        .badge-active{background:#166534;color:#4ade80;border:1px solid #22c55e;}
-        .badge-offline{background:#991b1b;color:#fca5a5;border:1px solid #ef4444;}
-        .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-bottom:24px;}
-        .card{background:#121215;border:1px solid #222226;border-radius:12px;padding:20px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.5);}
-        .card-title{font-size:13px;color:#a1a1aa;font-weight:600;text-transform:uppercase;margin-bottom:8px;}
-        .card-value{font-size:28px;font-weight:800;color:#f8fafc;}
-        .card-sub{font-size:12px;color:#71717a;margin-top:6px;}
-        .status-dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:6px;}
-        .dot-green{background:#22c55e;box-shadow:0 0 8px #22c55e;}
-        .dot-red{background:#ef4444;box-shadow:0 0 8px #ef4444;}
-        .section-title{font-size:16px;font-weight:600;color:#e4e4e7;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
-        .live-indicator{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:#4ade80;}
-        .pulse{width:8px;height:8px;border-radius:50%;background:#4ade80;animation:pulse 1.5s infinite;}
-        @keyframes pulse{0%{transform:scale(0.95);box-shadow:0 0 0 0 rgba(74,222,128,0.7);}70%{transform:scale(1);box-shadow:0 0 0 8px rgba(74,222,128,0);}100%{transform:scale(0.95);box-shadow:0 0 0 0 rgba(74,222,128,0);}}
+        *{box-sizing:border-box;margin:0;padding:0;font-family:'Lato',sans-serif;}
+        body{background-color:#060907;color:#f4f4f5;min-height:100vh;padding:32px 24px;background-image:radial-gradient(circle at 50% 20%,rgba(16,185,129,0.12) 0%,transparent 60%);}
+        .container{max-width:1100px;margin:0 auto;}
+        .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:32px;padding-bottom:20px;border-bottom:1px solid rgba(16,185,129,0.2);}
+        .title-box{display:flex;align-items:center;gap:14px;}
+        .icon-box{width:48px;height:48px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);border-radius:14px;display:flex;align-items:center;justify-content:center;}
+        .title{font-size:24px;font-weight:900;color:#ffffff;letter-spacing:-0.5px;}
+        .subtitle{font-size:13px;color:#a1a1aa;margin-top:2px;}
+        .badge{padding:4px 12px;border-radius:9999px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;}
+        .badge-active{background:rgba(16,185,129,0.15);color:#34d399;border:1px solid rgba(16,185,129,0.3);}
+        .badge-offline{background:rgba(239,68,68,0.15);color:#fca5a5;border:1px solid rgba(239,68,68,0.3);}
+        .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px;margin-bottom:32px;}
+        .card{background:#0f1712;border:1px solid rgba(16,185,129,0.2);border-radius:20px;padding:24px;box-shadow:0 20px 40px -15px rgba(0,0,0,0.7);transition:all 0.2s;backdrop-filter:blur(16px);}
+        .card:hover{transform:translateY(-2px);border-color:rgba(16,185,129,0.4);box-shadow:0 25px 50px -12px rgba(16,185,129,0.15);}
+        .card-title{font-size:12px;color:#a1a1aa;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;}
+        .card-value{font-size:32px;font-weight:900;color:#ffffff;}
+        .card-sub{font-size:12px;color:#71717a;margin-top:8px;}
+        .section-title{font-size:15px;font-weight:700;color:#34d399;margin-bottom:16px;display:flex;align-items:center;gap:8px;text-transform:uppercase;letter-spacing:0.5px;}
+        .live-indicator{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:#34d399;background:rgba(16,185,129,0.1);padding:6px 14px;border-radius:9999px;border:1px solid rgba(16,185,129,0.25);}
+        .pulse{width:8px;height:8px;border-radius:50%;background:#34d399;animation:pulse 1.5s infinite;}
+        @keyframes pulse{0%{transform:scale(0.95);box-shadow:0 0 0 0 rgba(52,211,153,0.7);}70%{transform:scale(1);box-shadow:0 0 0 8px rgba(52,211,153,0);}100%{transform:scale(0.95);box-shadow:0 0 0 0 rgba(52,211,153,0);}}
     </style>
 </head>
 <body>
-    <div class="header">
-        <div class="title">
-            📊 SSO Observability Dashboard
-        </div>
-        <div class="live-indicator">
-            <span class="pulse"></span> LIVE (Refreshing every 2s)
-        </div>
-    </div>
-
-    <div class="section-title">🔴 RED Metrics (Rate, Errors, Duration)</div>
-    <div class="grid">
-        <div class="card">
-            <div class="card-title">Total Requests</div>
-            <div class="card-value" id="total_requests">0</div>
-            <div class="card-sub">HTTP Inbound Requests</div>
-        </div>
-        <div class="card">
-            <div class="card-title">Avg Latency</div>
-            <div class="card-value" id="avg_latency" style="color:#38bdf8;">0 ms</div>
-            <div class="card-sub">Average response duration</div>
-        </div>
-        <div class="card">
-            <div class="card-title">Error Rate</div>
-            <div class="card-value" id="error_rate" style="color:#f43f5e;">0 %</div>
-            <div class="card-sub" id="error_count_sub">0 errors</div>
-        </div>
-    </div>
-
-    <div class="section-title">⚡ USE Metrics (Utilization, Saturation, Errors)</div>
-    <div class="grid">
-        <div class="card">
-            <div class="card-title">RabbitMQ Queue Depth</div>
-            <div class="card-value" id="queue_depth" style="color:#fbbf24;">0</div>
-            <div class="card-sub">Active messages in identity_events</div>
-        </div>
-        <div class="card">
-            <div class="card-title">Dead Letter Queue (DLQ)</div>
-            <div class="card-value" id="dlq_depth" style="color:#f87171;">0</div>
-            <div class="card-sub">Failed messages in identity_events_dlq</div>
-        </div>
-        <div class="card">
-            <div class="card-title">Sync Worker Status</div>
-            <div class="card-value" id="worker_status_card">
-                <span id="worker_badge" class="badge badge-active">ACTIVE</span>
+    <div class="container">
+        <div class="header">
+            <div class="title-box">
+                <div class="icon-box">
+                    <svg style="width:26px;height:26px;color:#34d399;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                </div>
+                <div>
+                    <div class="title">SSO Observability Dashboard</div>
+                    <div class="subtitle">Real-Time Infrastructure & System Telemetry</div>
+                </div>
             </div>
-            <div class="card-sub" id="consumer_sub">1 Consumer connected</div>
+            <div class="live-indicator">
+                <span class="pulse"></span> LIVE (2s refresh)
+            </div>
         </div>
-        <div class="card">
-            <div class="card-title">Webhook Deliveries</div>
-            <div class="card-value" id="deliveries_ok" style="color:#4ade80;">0</div>
-            <div class="card-sub" id="deliveries_failed_sub">0 failed attempts</div>
+
+        <div class="section-title">🔴 RED Metrics (Rate, Errors, Duration)</div>
+        <div class="grid">
+            <div class="card">
+                <div class="card-title">Total Requests</div>
+                <div class="card-value" id="total_requests">0</div>
+                <div class="card-sub">HTTP Inbound Requests</div>
+            </div>
+            <div class="card">
+                <div class="card-title">Avg Latency</div>
+                <div class="card-value" id="avg_latency" style="color:#38bdf8;">0 ms</div>
+                <div class="card-sub">Average response duration</div>
+            </div>
+            <div class="card">
+                <div class="card-title">Error Rate</div>
+                <div class="card-value" id="error_rate" style="color:#f43f5e;">0 %</div>
+                <div class="card-sub" id="error_count_sub">0 errors</div>
+            </div>
+        </div>
+
+        <div class="section-title">⚡ USE Metrics (Utilization, Saturation, Errors)</div>
+        <div class="grid">
+            <div class="card">
+                <div class="card-title">RabbitMQ Queue Depth</div>
+                <div class="card-value" id="queue_depth" style="color:#fbbf24;">0</div>
+                <div class="card-sub">Active messages in identity_events</div>
+            </div>
+            <div class="card">
+                <div class="card-title">Dead Letter Queue (DLQ)</div>
+                <div class="card-value" id="dlq_depth" style="color:#f87171;">0</div>
+                <div class="card-sub">Failed messages in identity_events_dlq</div>
+            </div>
+            <div class="card">
+                <div class="card-title">Sync Worker Status</div>
+                <div class="card-value" id="worker_status_card">
+                    <span id="worker_badge" class="badge badge-active">ACTIVE</span>
+                </div>
+                <div class="card-sub" id="consumer_sub">1 Consumer connected</div>
+            </div>
+            <div class="card">
+                <div class="card-title">Webhook Deliveries</div>
+                <div class="card-value" id="deliveries_ok" style="color:#34d399;">0</div>
+                <div class="card-sub" id="deliveries_failed_sub">0 failed attempts</div>
+            </div>
         </div>
     </div>
 
