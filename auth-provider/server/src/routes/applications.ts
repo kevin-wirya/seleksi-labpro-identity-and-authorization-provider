@@ -113,6 +113,8 @@ router.delete('/:id/redirect-uris/:uriId',async(req: any,res: Response)=>{
     }
 });
 
+import { revokeNonCompliantSessions } from '../utils/policyRevocation';
+
 // POST /api/admin/applications/:id/policies
 router.post('/:id/policies',async(req: any,res: Response)=>{
     const prisma=req.prisma;
@@ -152,6 +154,7 @@ router.post('/:id/policies',async(req: any,res: Response)=>{
                     status:'pending',
                 },
             });
+            await revokeNonCompliantSessions(tx, id);
             return pol;
         });
         res.json({success:true,data:policy});
@@ -163,9 +166,12 @@ router.post('/:id/policies',async(req: any,res: Response)=>{
 // DELETE /api/admin/applications/:id/policies/:policyId
 router.delete('/:id/policies/:policyId',async(req: any,res: Response)=>{
     const prisma=req.prisma;
-    const{policyId}=req.params;
+    const{id,policyId}=req.params;
     try{
-        await prisma.applicationGroupPolicy.delete({where:{id:policyId}});
+        await prisma.$transaction(async(tx: any)=>{
+            await tx.applicationGroupPolicy.delete({where:{id:policyId}});
+            await revokeNonCompliantSessions(tx, id);
+        });
         res.json({success:true,message:'Group policy deleted successfully'});
     }catch(error: any){
         res.status(500).json({success:false,error:error.message});

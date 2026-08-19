@@ -1,10 +1,27 @@
 import {NextResponse} from 'next/server';
 import crypto from 'crypto';
+import {prisma} from '@/lib/prisma';
 
 export async function GET(){
     const state=crypto.randomBytes(16).toString('hex');
     const codeVerifier=crypto.randomBytes(32).toString('hex');
     const codeChallenge=crypto.createHash('sha256').update(codeVerifier).digest('base64url');
+
+    try{
+        await prisma.auditLog.create({
+            data:{
+                event_type:'RedirectToAuthProvider',
+                application_id:'app-b',
+                result:'success',
+                metadata:JSON.stringify({
+                    target:'http://localhost:4000/api/auth/authorize',
+                    client_id:'app-b',
+                    state:state.substring(0,8)+'...',
+                }),
+            },
+        });
+    }catch(e){}
+
     const authUrl=new URL('http://localhost:4000/api/auth/authorize');
     authUrl.searchParams.set('client_id','app-b');
     authUrl.searchParams.set('redirect_uri','http://localhost:3002/api/auth/callback');

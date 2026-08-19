@@ -67,6 +67,8 @@ router.post('/',async(req: any,res: Response)=>{
     }
 });
 
+import { revokeNonCompliantSessions } from '../utils/policyRevocation';
+
 // PATCH /api/admin/users/:id/status
 router.patch('/:id/status',async(req: any,res: Response)=>{
     const prisma=req.prisma;
@@ -76,10 +78,14 @@ router.patch('/:id/status',async(req: any,res: Response)=>{
         return res.status(400).json({success:false,error:'Status must be active or inactive'});
     }
     try{
-        const updatedUser=await prisma.user.update({
-            where:{id},
-            data:{status},
-            select:{id:true,name:true,email:true,status:true},
+        const updatedUser=await prisma.$transaction(async(tx: any)=>{
+            const user=await tx.user.update({
+                where:{id},
+                data:{status},
+                select:{id:true,name:true,email:true,status:true},
+            });
+            await revokeNonCompliantSessions(tx, undefined, id);
+            return user;
         });
         res.json({success:true,data:updatedUser});
     }catch(error: any){
@@ -118,6 +124,7 @@ router.put('/:id',async(req: any,res: Response)=>{
                     },
                 });
             }
+            await revokeNonCompliantSessions(tx, undefined, id);
             return user;
         });
         res.json({success:true,data:updatedUser});

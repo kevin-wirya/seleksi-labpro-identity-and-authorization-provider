@@ -90,6 +90,8 @@ router.post('/assign',async(req: any,res: Response)=>{
     }
 });
 
+import { revokeNonCompliantSessions } from '../utils/policyRevocation';
+
 // DELETE /api/admin/groups/assign
 router.delete('/assign',async(req: any,res: Response)=>{
     const prisma=req.prisma;
@@ -98,12 +100,15 @@ router.delete('/assign',async(req: any,res: Response)=>{
         return res.status(400).json({success:false,error:'user_id and group_id are required'});
     }
     try{
-        await prisma.userGroup.delete({
-            where:{
-                user_id_group_id:{user_id,group_id},
-            },
+        await prisma.$transaction(async(tx: any)=>{
+            await tx.userGroup.delete({
+                where:{
+                    user_id_group_id:{user_id,group_id},
+                },
+            });
+            await revokeNonCompliantSessions(tx, undefined, user_id);
         });
-        res.json({success:true,message:'User removed from group'});
+        res.json({success:true,message:'User removed from group and impacted sessions revoked'});
     }catch(error: any){
         res.status(500).json({success:false,error:error.message});
     }

@@ -26,6 +26,19 @@ export async function POST(request:NextRequest){
                 processed_at:new Date(),
             },
         });
+
+        try{
+            await prisma.auditLog.create({
+                data:{
+                    event_type:'LocalSessionRevoked',
+                    application_id:'app-a',
+                    user_id,
+                    result:'success',
+                    metadata:JSON.stringify({event_id,reason:'Webhook Central SSO Revocation'}),
+                },
+            });
+        }catch(e){}
+
         return NextResponse.json({success:true,message:'Local session revoked successfully'},{status:200});
     }catch(err:any){
         return NextResponse.json({error:err.message},{status:500});

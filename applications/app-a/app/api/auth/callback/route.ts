@@ -9,11 +9,49 @@ export async function GET(request:NextRequest){
     const error=searchParams.get('error');
     const errorDescription=searchParams.get('error_description');
     const savedState=request.cookies.get('oauth_state')?.value;
-    if(!state||!savedState||state!==savedState) return NextResponse.json({success:false,error:'State mismatch / Possible CSRF attack detected'},{status:400});
-    if(error) return NextResponse.json({success:false,error,error_description:errorDescription||'Access denied by Auth Provider policy'},{status:403});
+
+    if(!state||!savedState||state!==savedState){
+        try{
+            await prisma.auditLog.create({
+                data:{
+                    event_type:'StateValidationFailed',
+                    application_id:'app-a',
+                    result:'failed',
+                    metadata:JSON.stringify({reason:'State mismatch / Possible CSRF attack'}),
+                },
+            });
+        }catch(e){}
+        return NextResponse.json({success:false,error:'State mismatch / Possible CSRF attack detected'},{status:400});
+    }
+
+    if(error){
+        try{
+            await prisma.auditLog.create({
+                data:{
+                    event_type:'AuthorizationFailed',
+                    application_id:'app-a',
+                    result:'failed',
+                    metadata:JSON.stringify({error,description:errorDescription}),
+                },
+            });
+        }catch(e){}
+        return NextResponse.json({success:false,error,error_description:errorDescription||'Access denied by Auth Provider policy'},{status:403});
+    }
+
     if(!code) return NextResponse.json({success:false,error:'Authorization code missing'},{status:400});
+
+    try{
+        await prisma.auditLog.create({
+            data:{
+                event_type:'AuthorizationCodeReceived',
+                application_id:'app-a',
+                result:'success',
+                metadata:JSON.stringify({code_snippet:code.substring(0,8)+'...',state:state.substring(0,8)+'...'}),
+            },
+        });
+    }catch(e){}
+
     const authHost=process.env.AUTH_PROVIDER_INTERNAL_URL||'http://auth-provider:4000';
-    // POST /token
     let tokenRes: any;
     try{
         tokenRes=await fetch(`${authHost}/api/auth/token`,{
@@ -39,8 +77,31 @@ export async function GET(request:NextRequest){
         });
     }
     const tokenData=await tokenRes.json();
-    if(!tokenRes.ok||!tokenData.access_token) return NextResponse.json({success:false,error:tokenData.error||'Failed to exchange authorization code'},{status:400});
-    // GET /userinfo
+    if(!tokenRes.ok||!tokenData.access_token){
+        try{
+            await prisma.auditLog.create({
+                data:{
+                    event_type:'TokenExchangeFailed',
+                    application_id:'app-a',
+                    result:'failed',
+                    metadata:JSON.stringify({error:tokenData.error||'Token exchange failed'}),
+                },
+            });
+        }catch(e){}
+        return NextResponse.json({success:false,error:tokenData.error||'Failed to exchange authorization code'},{status:400});
+    }
+
+    try{
+        await prisma.auditLog.create({
+            data:{
+                event_type:'AccessTokenExchanged',
+                application_id:'app-a',
+                result:'success',
+                metadata:JSON.stringify({grant_type:'authorization_code',expires_in:tokenData.expires_in}),
+            },
+        });
+    }catch(e){}
+
     let userinfoRes: any;
     try{
         userinfoRes=await fetch(`${authHost}/api/auth/userinfo`,{
@@ -52,8 +113,32 @@ export async function GET(request:NextRequest){
         });
     }
     const userinfo=await userinfoRes.json();
-    if(!userinfoRes.ok) return NextResponse.json({success:false,error:userinfo.error||'Failed to fetch userinfo'},{status:400});
-    // profile cache
+    if(!userinfoRes.ok){
+        try{
+            await prisma.auditLog.create({
+                data:{
+                    event_type:'UserInfoFetchFailed',
+                    application_id:'app-a',
+                    result:'failed',
+                    metadata:JSON.stringify({error:userinfo.error}),
+                },
+            });
+        }catch(e){}
+        return NextResponse.json({success:false,error:userinfo.error||'Failed to fetch userinfo'},{status:400});
+    }
+
+    try{
+        await prisma.auditLog.create({
+            data:{
+                event_type:'UserInfoFetched',
+                application_id:'app-a',
+                user_id:userinfo.sub,
+                result:'success',
+                metadata:JSON.stringify({email:userinfo.email,name:userinfo.name,groups:userinfo.groups}),
+            },
+        });
+    }catch(e){}
+
     await prisma.profileCache.upsert({
         where:{external_user_id:userinfo.sub},
         update:{
@@ -69,12 +154,12 @@ export async function GET(request:NextRequest){
             groups:JSON.stringify(userinfo.groups||[]),
         },
     });
-    // local session
+
     const rawLocalToken=crypto.randomBytes(32).toString('hex');
     const session_token_hash=crypto.createHash('sha256').update(rawLocalToken).digest('hex');
     const expires_at=new Date(Date.now()+24*60*60*1000);
     const appRecord=await prisma.application.findUnique({where:{client_id:'app-a'}});
-    await prisma.localSession.create({
+    const localSession=await prisma.localSession.create({
         data:{
             session_token_hash,
             external_user_id:userinfo.sub,
@@ -84,7 +169,20 @@ export async function GET(request:NextRequest){
             expires_at,
         },
     });
-    // cookie
+
+    try{
+        await prisma.auditLog.create({
+            data:{
+                event_type:'LocalSessionCreated',
+                application_id:'app-a',
+                user_id:userinfo.sub,
+                session_id:localSession.id,
+                result:'success',
+                metadata:JSON.stringify({session_id:localSession.id,expires_at}),
+            },
+        });
+    }catch(e){}
+
     const response=NextResponse.redirect(new URL('/',request.url));
     response.cookies.set('app_a_session',rawLocalToken,{httpOnly:true,path:'/',maxAge:86400});
     return response;

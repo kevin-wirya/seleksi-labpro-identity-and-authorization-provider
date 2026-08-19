@@ -152,9 +152,14 @@ router.get('/authorize', async (req: any, res: Response) => {
         let isAllowed = true;
         if (policies.length > 0) {
             const hasDeny = policies.some((p: any) => p.effect === 'deny' && userGroupIds.includes(p.group_id));
-            const hasAllow = policies.some((p: any) => p.effect === 'allow' && userGroupIds.includes(p.group_id));
-            if (hasDeny || !hasAllow) {
+            const allowPolicies = policies.filter((p: any) => p.effect === 'allow');
+            if (hasDeny) {
                 isAllowed = false;
+            } else if (allowPolicies.length > 0) {
+                const hasAllow = allowPolicies.some((p: any) => userGroupIds.includes(p.group_id));
+                if (!hasAllow) {
+                    isAllowed = false;
+                }
             }
         }
         if (!isAllowed) {
