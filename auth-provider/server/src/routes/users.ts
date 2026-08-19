@@ -12,6 +12,7 @@ router.get('/',async(req: any,res: Response)=>{
                 name:true,
                 email:true,
                 status:true,
+                mfa_enabled:true,
                 created_at:true,
                 updated_at:true,
                 user_groups:{
@@ -31,7 +32,7 @@ router.get('/',async(req: any,res: Response)=>{
 // POST /api/admin/users
 router.post('/',async(req: any,res: Response)=>{
     const prisma=req.prisma;
-    const{name,email,password,status,group_ids}=req.body;
+    const{name,email,password,status,mfa_enabled,group_ids}=req.body;
     if(!name||!email||!password){
         return res.status(400).json({success:false,error:'Name, email, and password are required'});
     }
@@ -46,6 +47,7 @@ router.post('/',async(req: any,res: Response)=>{
                 email,
                 password_hash,
                 status:status||"active",
+                mfa_enabled:Boolean(mfa_enabled),
                 user_groups:Array.isArray(group_ids)?{
                     create:group_ids.map((groupId: string)=>({group_id:groupId}))
                 }:undefined,
@@ -55,6 +57,7 @@ router.post('/',async(req: any,res: Response)=>{
                 name:true,
                 email:true,
                 status:true,
+                mfa_enabled:true,
                 created_at:true,
                 user_groups:{
                     include:{group:true}
@@ -106,6 +109,23 @@ router.patch('/:id/status',async(req: any,res: Response)=>{
             });
             await revokeNonCompliantSessions(tx, undefined, id);
             return user;
+        });
+        res.json({success:true,data:updatedUser});
+    }catch(error: any){
+        res.status(500).json({success:false,error:error.message});
+    }
+});
+
+// PATCH /api/admin/users/:id/mfa
+router.patch('/:id/mfa',async(req: any,res: Response)=>{
+    const prisma=req.prisma;
+    const{id}=req.params;
+    const{mfa_enabled}=req.body;
+    try{
+        const updatedUser=await prisma.user.update({
+            where:{id},
+            data:{mfa_enabled:Boolean(mfa_enabled)},
+            select:{id:true,name:true,email:true,status:true,mfa_enabled:true},
         });
         res.json({success:true,data:updatedUser});
     }catch(error: any){

@@ -10,6 +10,7 @@ export interface User{
     name: string;
     email: string;
     status: 'active' | 'inactive';
+    mfa_enabled?: boolean;
     created_at: string;
     updated_at?: string;
     user_groups:{
@@ -63,7 +64,7 @@ export async function getUsers(): Promise<User[]>{
     return json.data;
 }
 
-export async function createUser(payload:{name: string; email: string; password: string; status?: string; group_ids?: string[]}): Promise<User>{
+export async function createUser(payload:{name: string; email: string; password: string; status?: string; mfa_enabled?: boolean; group_ids?: string[]}): Promise<User>{
     const res=await fetch(`${getBaseUrl()}/api/admin/users`,{
         method:'POST',
         headers:{'Content-Type':'application/json'},
@@ -82,6 +83,17 @@ export async function updateUserStatus(userId: string,status: 'active' | 'inacti
     });
     const json=await res.json();
     if(!json.success)throw new Error(json.error||'Failed to update user status');
+    return json.data;
+}
+
+export async function toggleUserMfa(userId: string,mfa_enabled: boolean): Promise<User>{
+    const res=await fetch(`${getBaseUrl()}/api/admin/users/${userId}/mfa`,{
+        method:'PATCH',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({mfa_enabled}),
+    });
+    const json=await res.json();
+    if(!json.success)throw new Error(json.error||'Failed to toggle MFA status');
     return json.data;
 }
 

@@ -1,6 +1,6 @@
 'use client';
 import {useState,useEffect} from 'react';
-import {getUsers,createUser,updateUserStatus,getGroups,createGroup,assignUserToGroup,removeUserFromGroup,getApplications,createApplication,addRedirectUri,deleteRedirectUri,createPolicy,deletePolicy,User,Group,Application} from '../lib/api';
+import {getUsers,createUser,updateUserStatus,toggleUserMfa,getGroups,createGroup,assignUserToGroup,removeUserFromGroup,getApplications,createApplication,addRedirectUri,deleteRedirectUri,createPolicy,deletePolicy,User,Group,Application} from '../lib/api';
 
 const IconShield=()=>(<svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>);
 const IconBarChart=()=>(<svg className="w-4 h-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>);
@@ -30,6 +30,7 @@ export default function Home(){
     const[userEmail,setUserEmail]=useState<string>('');
     const[userPassword,setUserPassword]=useState<string>('');
     const[userStatus,setUserStatus]=useState<'active'|'inactive'>('active');
+    const[userMfaEnabled,setUserMfaEnabled]=useState<boolean>(false);
 
     // group form state
     const[groupName,setGroupName]=useState<string>('');
@@ -87,11 +88,12 @@ export default function Home(){
         setError('');
         setSuccess('');
         try{
-            await createUser({name:userName,email:userEmail,password:userPassword,status:userStatus});
+            await createUser({name:userName,email:userEmail,password:userPassword,status:userStatus,mfa_enabled:userMfaEnabled});
             setSuccess('User created successfully!');
             setUserName('');
             setUserEmail('');
             setUserPassword('');
+            setUserMfaEnabled(false);
             loadData();
         }catch(err: any){
             setError(err.message);
@@ -105,6 +107,19 @@ export default function Home(){
         try{
             await updateUserStatus(userId,nextStatus);
             setSuccess(`User status updated to ${nextStatus}!`);
+            loadData();
+        }catch(err: any){
+            setError(err.message);
+        }
+    };
+
+    const handleToggleMfa=async(userId: string,currentMfa: boolean)=>{
+        setError('');
+        setSuccess('');
+        const nextMfa=!currentMfa;
+        try{
+            await toggleUserMfa(userId,nextMfa);
+            setSuccess(`MFA status updated to ${nextMfa?'Enabled':'Disabled'}!`);
             loadData();
         }catch(err: any){
             setError(err.message);
@@ -299,6 +314,10 @@ export default function Home(){
                                         <option value="inactive">Inactive</option>
                                     </select>
                                 </div>
+                                <div className="flex items-center gap-2 pt-1">
+                                    <input type="checkbox" id="mfa_checkbox" checked={userMfaEnabled} onChange={(e)=>setUserMfaEnabled(e.target.checked)} className="rounded bg-zinc-950 border-zinc-800 text-sky-500 focus:ring-0 w-4 h-4"/>
+                                    <label htmlFor="mfa_checkbox" className="text-xs font-medium text-zinc-300 cursor-pointer">Enable MFA (Multi-Factor Auth)</label>
+                                </div>
                                 <button type="submit" className="w-full bg-sky-600 hover:bg-sky-500 text-white font-medium text-sm py-2.5 rounded-lg transition">
                                     Create User
                                 </button>
@@ -320,14 +339,15 @@ export default function Home(){
                                             <th className="p-3">Email</th>
                                             <th className="p-3">Groups</th>
                                             <th className="p-3">Status</th>
+                                            <th className="p-3">MFA</th>
                                             <th className="p-3 text-right">Action</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-zinc-800">
                                         {loading?(
-                                            <tr><td colSpan={5} className="p-4 text-center text-zinc-500">Loading users...</td></tr>
+                                            <tr><td colSpan={6} className="p-4 text-center text-zinc-500">Loading users...</td></tr>
                                         ):users.length===0?(
-                                            <tr><td colSpan={5} className="p-4 text-center text-zinc-500">No users found.</td></tr>
+                                            <tr><td colSpan={6} className="p-4 text-center text-zinc-500">No users found.</td></tr>
                                         ):users.map((u)=>(
                                             <tr key={u.id} className="hover:bg-zinc-800/50">
                                                 <td className="p-3 font-medium text-white">{u.name}</td>
@@ -347,9 +367,17 @@ export default function Home(){
                                                         {u.status}
                                                     </span>
                                                 </td>
-                                                <td className="p-3 text-right">
+                                                <td className="p-3">
+                                                    <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${u.mfa_enabled?'bg-purple-950 text-purple-400 border border-purple-500/30':'bg-zinc-800 text-zinc-400 border border-zinc-700'}`}>
+                                                        {u.mfa_enabled?'Enabled':'Disabled'}
+                                                    </span>
+                                                </td>
+                                                <td className="p-3 text-right space-x-2">
                                                     <button onClick={()=>handleToggleStatus(u.id,u.status)} className="text-xs text-amber-400 hover:underline font-medium">
                                                         Toggle Status
+                                                    </button>
+                                                    <button onClick={()=>handleToggleMfa(u.id,!!u.mfa_enabled)} className="text-xs text-purple-400 hover:underline font-medium">
+                                                        Toggle MFA
                                                     </button>
                                                 </td>
                                             </tr>

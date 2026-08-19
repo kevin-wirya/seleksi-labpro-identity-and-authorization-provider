@@ -13,6 +13,7 @@ import usersRoute from './routes/users';
 import groupsRoute from './routes/groups';
 import applicationsRoute from './routes/applications';
 import metricsRoute, { globalMetrics } from './routes/metrics';
+import mfaRoute from './routes/mfa';
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -48,6 +49,13 @@ app.use('/api/admin/users', usersRoute);
 app.use('/api/admin/groups', groupsRoute);
 app.use('/api/admin/applications', applicationsRoute);
 app.use('/api/admin/metrics', metricsRoute);
+app.use('/api/auth/mfa', mfaRoute);
+app.get('/api/auth/mfa-ui', (req: Request, res: Response) => {
+    res.redirect('/api/auth/mfa/ui');
+});
+app.get('/mfa-ui', (req: Request, res: Response) => {
+    res.redirect('/api/auth/mfa/ui');
+});
 app.get('/metrics-ui', (req: Request, res: Response) => {
     res.redirect('/api/admin/metrics/ui');
 });
