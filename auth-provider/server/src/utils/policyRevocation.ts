@@ -21,7 +21,7 @@ export async function revokeNonCompliantSessions(tx: any,targetAppId?: string,ta
                 data:{
                     event_type:'SessionRevoked',
                     user_id:session.user_id,
-                    session_id:session.id,
+                    central_session_id:session.id,
                     payload:JSON.stringify({event_type:'SessionRevoked',user_id:session.user_id,central_session_id:session.id,reason:'User deactivated'}),
                     status:'pending',
                 },
@@ -52,7 +52,7 @@ export async function revokeNonCompliantSessions(tx: any,targetAppId?: string,ta
                         event_type:'SessionRevoked',
                         user_id:session.user_id,
                         application_id:app.id,
-                        session_id:session.id,
+                        central_session_id:session.id,
                         payload:JSON.stringify({event_type:'SessionRevoked',user_id:session.user_id,central_session_id:session.id,reason:'User lost policy access'}),
                         status:'pending',
                     },

@@ -61,6 +61,17 @@ router.post('/',async(req: any,res: Response)=>{
                 }
             },
         });
+        try{
+            await prisma.auditLog.create({
+                data:{
+                    event_type:'user_created',
+                    actor_id:'admin',
+                    user_id:user.id,
+                    result:'success',
+                    metadata:JSON.stringify({name:user.name,email:user.email,status:user.status}),
+                },
+            });
+        }catch(e){}
         res.status(201).json({success:true,data:user});
     }catch(error: any){
         res.status(500).json({success:false,error:error.message});
@@ -83,6 +94,15 @@ router.patch('/:id/status',async(req: any,res: Response)=>{
                 where:{id},
                 data:{status},
                 select:{id:true,name:true,email:true,status:true},
+            });
+            await tx.auditLog.create({
+                data:{
+                    event_type:'user_status_changed',
+                    actor_id:'admin',
+                    user_id:id,
+                    result:'success',
+                    metadata:JSON.stringify({new_status:status}),
+                },
             });
             await revokeNonCompliantSessions(tx, undefined, id);
             return user;
@@ -124,6 +144,15 @@ router.put('/:id',async(req: any,res: Response)=>{
                     },
                 });
             }
+            await tx.auditLog.create({
+                data:{
+                    event_type:password?'password_changed':'user_updated',
+                    actor_id:'admin',
+                    user_id:id,
+                    result:'success',
+                    metadata:JSON.stringify({fields_updated:Object.keys(updateData)}),
+                },
+            });
             await revokeNonCompliantSessions(tx, undefined, id);
             return user;
         });

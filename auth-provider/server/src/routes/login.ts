@@ -195,6 +195,16 @@ router.post('/', async (req: any, res: Response) => {
     try {
         const user = await prisma.user.findUnique({ where: { email } });
         if (!user || user.status !== 'active') {
+            try{
+                await prisma.auditLog.create({
+                    data:{
+                        event_type:'login_failed',
+                        result:'denied',
+                        metadata:JSON.stringify({email,reason:!user?'User not found':'User inactive'}),
+                        ip_address:(req.ip||req.headers['x-forwarded-for']||null) as string|null,
+                    },
+                });
+            }catch(e){}
             return res.status(401).send(renderLoginPage({
                 error: 'Invalid email or password or inactive account',
                 email,
@@ -206,6 +216,18 @@ router.post('/', async (req: any, res: Response) => {
 
         const isPasswordValid = verifyPassword(password, user.password_hash);
         if (!isPasswordValid) {
+            try{
+                await prisma.auditLog.create({
+                    data:{
+                        event_type:'login_failed',
+                        actor_id:user.id,
+                        user_id:user.id,
+                        result:'denied',
+                        metadata:JSON.stringify({email,reason:'Invalid password'}),
+                        ip_address:(req.ip||req.headers['x-forwarded-for']||null) as string|null,
+                    },
+                });
+            }catch(e){}
             return res.status(401).send(renderLoginPage({
                 error: 'Invalid email or password',
                 email,
@@ -232,6 +254,19 @@ router.post('/', async (req: any, res: Response) => {
                 user_agent,
             },
         });
+
+        try{
+            await prisma.auditLog.create({
+                data:{
+                    event_type:'login_success',
+                    actor_id:user.id,
+                    user_id:user.id,
+                    result:'success',
+                    metadata:JSON.stringify({email:user.email,name:user.name}),
+                    ip_address:(req.ip||req.headers['x-forwarded-for']||null) as string|null,
+                },
+            });
+        }catch(e){}
 
         res.cookie('sso_session', rawSessionToken, {
             httpOnly: true,

@@ -34,6 +34,16 @@ router.post('/',async(req: any,res: Response)=>{
         const group=await prisma.group.create({
             data:{name,description},
         });
+        try{
+            await prisma.auditLog.create({
+                data:{
+                    event_type:'group_created',
+                    actor_id:'admin',
+                    result:'success',
+                    metadata:JSON.stringify({group_id:group.id,name}),
+                },
+            });
+        }catch(e){}
         res.status(201).json({success:true,data:group});
     }catch(error: any){
         res.status(500).json({success:false,error:error.message});
@@ -50,6 +60,16 @@ router.put('/:id',async(req: any,res: Response)=>{
             where:{id},
             data:{name,description},
         });
+        try{
+            await prisma.auditLog.create({
+                data:{
+                    event_type:'group_updated',
+                    actor_id:'admin',
+                    result:'success',
+                    metadata:JSON.stringify({group_id:group.id,name,description}),
+                },
+            });
+        }catch(e){}
         res.json({success:true,data:group});
     }catch(error: any){
         res.status(500).json({success:false,error:error.message});
@@ -61,7 +81,20 @@ router.delete('/:id',async(req: any,res: Response)=>{
     const prisma=req.prisma;
     const{id}=req.params;
     try{
+        const group=await prisma.group.findUnique({where:{id}});
         await prisma.group.delete({where:{id}});
+        if(group){
+            try{
+                await prisma.auditLog.create({
+                    data:{
+                        event_type:'group_deleted',
+                        actor_id:'admin',
+                        result:'success',
+                        metadata:JSON.stringify({group_id:id,name:group.name}),
+                    },
+                });
+            }catch(e){}
+        }
         res.json({success:true,message:'Group deleted successfully'});
     }catch(error: any){
         res.status(500).json({success:false,error:error.message});
@@ -84,6 +117,17 @@ router.post('/assign',async(req: any,res: Response)=>{
             create:{user_id,group_id},
             include:{user:true,group:true},
         });
+        try{
+            await prisma.auditLog.create({
+                data:{
+                    event_type:'user_assigned_to_group',
+                    actor_id:'admin',
+                    user_id,
+                    result:'success',
+                    metadata:JSON.stringify({group_id}),
+                },
+            });
+        }catch(e){}
         res.json({success:true,data:userGroup});
     }catch(error: any){
         res.status(500).json({success:false,error:error.message});
@@ -104,6 +148,15 @@ router.delete('/assign',async(req: any,res: Response)=>{
             await tx.userGroup.delete({
                 where:{
                     user_id_group_id:{user_id,group_id},
+                },
+            });
+            await tx.auditLog.create({
+                data:{
+                    event_type:'user_removed_from_group',
+                    actor_id:'admin',
+                    user_id,
+                    result:'success',
+                    metadata:JSON.stringify({group_id}),
                 },
             });
             await revokeNonCompliantSessions(tx, undefined, user_id);

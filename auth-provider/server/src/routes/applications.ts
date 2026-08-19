@@ -44,6 +44,17 @@ router.post('/',async(req: any,res: Response)=>{
                 group_policies:true,
             },
         });
+        try{
+            await prisma.auditLog.create({
+                data:{
+                    event_type:'app_created',
+                    actor_id:'admin',
+                    application_id:app.id,
+                    result:'success',
+                    metadata:JSON.stringify({client_id,name}),
+                },
+            });
+        }catch(e){}
         res.status(201).json({success:true,data:app});
     }catch(error: any){
         res.status(500).json({success:false,error:error.message});
@@ -60,6 +71,17 @@ router.put('/:id',async(req: any,res: Response)=>{
             where:{id},
             data:{name,launch_url,logout_notification_url,status},
         });
+        try{
+            await prisma.auditLog.create({
+                data:{
+                    event_type:'app_updated',
+                    actor_id:'admin',
+                    application_id:id,
+                    result:'success',
+                    metadata:JSON.stringify({fields_updated:Object.keys({name,launch_url,logout_notification_url,status}).filter(k=>req.body[k]!==undefined)}),
+                },
+            });
+        }catch(e){}
         res.json({success:true,data:app});
     }catch(error: any){
         res.status(500).json({success:false,error:error.message});
@@ -71,7 +93,21 @@ router.delete('/:id',async(req: any,res: Response)=>{
     const prisma=req.prisma;
     const{id}=req.params;
     try{
+        const app=await prisma.application.findUnique({where:{id}});
         await prisma.application.delete({where:{id}});
+        if(app){
+            try{
+                await prisma.auditLog.create({
+                    data:{
+                        event_type:'app_deleted',
+                        actor_id:'admin',
+                        application_id:id,
+                        result:'success',
+                        metadata:JSON.stringify({client_id:app.client_id,name:app.name}),
+                    },
+                });
+            }catch(e){}
+        }
         res.json({success:true,message:'Application deleted successfully'});
     }catch(error: any){
         res.status(500).json({success:false,error:error.message});
@@ -95,6 +131,17 @@ router.post('/:id/redirect-uris',async(req: any,res: Response)=>{
         const uri=await prisma.applicationRedirectUri.create({
             data:{application_id:id,redirect_uri},
         });
+        try{
+            await prisma.auditLog.create({
+                data:{
+                    event_type:'redirect_uri_added',
+                    actor_id:'admin',
+                    application_id:id,
+                    result:'success',
+                    metadata:JSON.stringify({redirect_uri}),
+                },
+            });
+        }catch(e){}
         res.status(201).json({success:true,data:uri});
     }catch(error: any){
         res.status(500).json({success:false,error:error.message});
@@ -105,8 +152,21 @@ router.post('/:id/redirect-uris',async(req: any,res: Response)=>{
 router.delete('/:id/redirect-uris/:uriId',async(req: any,res: Response)=>{
     const prisma=req.prisma;
     const{uriId}=req.params;
-    try{
+        const uri=await prisma.applicationRedirectUri.findUnique({where:{id:uriId}});
         await prisma.applicationRedirectUri.delete({where:{id:uriId}});
+        if(uri){
+            try{
+                await prisma.auditLog.create({
+                    data:{
+                        event_type:'redirect_uri_deleted',
+                        actor_id:'admin',
+                        application_id:id,
+                        result:'success',
+                        metadata:JSON.stringify({redirect_uri:uri.redirect_uri}),
+                    },
+                });
+            }catch(e){}
+        }
         res.json({success:true,message:'Redirect URI deleted successfully'});
     }catch(error: any){
         res.status(500).json({success:false,error:error.message});
@@ -154,6 +214,29 @@ router.post('/:id/policies',async(req: any,res: Response)=>{
                     status:'pending',
                 },
             });
+            await tx.event.create({
+                data:{
+                    event_type:'AccessPolicyChanged',
+                    user_id:'system',
+                    application_id:id,
+                    payload:JSON.stringify({
+                        event_type:'AccessPolicyChanged',
+                        application_id:id,
+                        group_id,
+                        reason:'Policy updated',
+                    }),
+                    status:'pending',
+                },
+            });
+            await tx.auditLog.create({
+                data:{
+                    event_type:'policy_created',
+                    actor_id:'admin',
+                    application_id:id,
+                    result:'success',
+                    metadata:JSON.stringify({group_id,effect:policyEffect}),
+                },
+            });
             await revokeNonCompliantSessions(tx, id);
             return pol;
         });
@@ -169,7 +252,33 @@ router.delete('/:id/policies/:policyId',async(req: any,res: Response)=>{
     const{id,policyId}=req.params;
     try{
         await prisma.$transaction(async(tx: any)=>{
+            const pol=await tx.applicationGroupPolicy.findUnique({where:{id:policyId}});
             await tx.applicationGroupPolicy.delete({where:{id:policyId}});
+            if(pol){
+                await tx.event.create({
+                    data:{
+                        event_type:'AccessPolicyChanged',
+                        user_id:'system',
+                        application_id:id,
+                        payload:JSON.stringify({
+                            event_type:'AccessPolicyChanged',
+                            application_id:id,
+                            group_id:pol.group_id,
+                            reason:'Policy deleted',
+                        }),
+                        status:'pending',
+                    },
+                });
+                await tx.auditLog.create({
+                    data:{
+                        event_type:'policy_deleted',
+                        actor_id:'admin',
+                        application_id:id,
+                        result:'success',
+                        metadata:JSON.stringify({group_id:pol.group_id,effect:pol.effect}),
+                    },
+                });
+            }
             await revokeNonCompliantSessions(tx, id);
         });
         res.json({success:true,message:'Group policy deleted successfully'});
