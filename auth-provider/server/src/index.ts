@@ -50,6 +50,17 @@ app.use('/api/admin/groups', groupsRoute);
 app.use('/api/admin/applications', applicationsRoute);
 app.use('/api/admin/metrics', metricsRoute);
 app.use('/api/auth/mfa', mfaRoute);
+app.get('/api/admin/audit-logs',async(req: any,res: Response)=>{
+    try{
+        const logs=await req.prisma.auditLog.findMany({
+            orderBy:{created_at:'desc'},
+            take:100,
+        });
+        res.json({success:true,data:logs});
+    }catch(e: any){
+        res.status(500).json({success:false,error:e.message});
+    }
+});
 app.get('/api/auth/mfa-ui', (req: Request, res: Response) => {
     res.redirect('/api/auth/mfa/ui');
 });

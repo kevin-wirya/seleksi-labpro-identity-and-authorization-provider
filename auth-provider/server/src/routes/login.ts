@@ -1,11 +1,76 @@
 import express, { Request, Response } from 'express';
 import crypto from 'crypto';
 import { verifyPassword } from '../utils/hash';
+import { verifyTotp } from '../utils/totp';
 
 const router = express.Router();
 
 function hashSessionToken(token: string): string {
     return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+function renderMfaChallengePage(props: {
+    mfa_token: string;
+    email: string;
+    error?: string;
+    clientId?: string;
+    redirectUri?: string;
+    state?: string;
+    codeChallenge?: string;
+    codeChallengeMethod?: string;
+}) {
+    const { mfa_token, email, error, clientId='', redirectUri='', state='', codeChallenge='', codeChallengeMethod='' } = props;
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MFA Verification - Auth Provider</title>
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700;900&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Lato', sans-serif; }
+        body { background-color: #060907; color: #f4f4f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; background-image: radial-gradient(circle at 50% 20%, rgba(16, 185, 129, 0.12) 0%, transparent 60%); }
+        .card { background-color: #0f1712; border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 24px; padding: 36px; max-width: 440px; width: 100%; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.7), 0 0 40px rgba(16, 185, 129, 0.08); text-align: center; backdrop-filter: blur(16px); }
+        .icon-box { width: 60px; height: 60px; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 18px; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 20px rgba(245, 158, 11, 0.15); }
+        h1 { font-size: 22px; font-weight: 800; color: #ffffff; margin-bottom: 6px; }
+        p.subtitle { font-size: 13px; color: #a1a1aa; margin-bottom: 24px; }
+        .form-group { margin-bottom: 18px; text-align: left; }
+        label { display: block; font-size: 11px; font-weight: 700; color: #a1a1aa; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+        input { width: 100%; background: #060907; border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 12px; padding: 14px; color: #ffffff; font-size: 16px; outline: none; transition: border-color 0.2s; text-align: center; letter-spacing: 4px; font-weight: 700; }
+        input:focus { border-color: #34d399; }
+        .error-banner { background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: #fca5a5; padding: 12px; border-radius: 12px; font-size: 13px; margin-bottom: 20px; text-align: left; }
+        button { width: 100%; background: #059669; color: #ffffff; font-weight: 700; padding: 14px; border: none; border-radius: 12px; cursor: pointer; transition: background 0.2s; font-size: 15px; }
+        button:hover { background: #10b981; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="icon-box">
+            <svg style="width:30px;height:30px;color:#fbbf24;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+        </div>
+        <h1>Multi-Factor Authentication</h1>
+        <p class="subtitle">Enter the 6-digit code from your authenticator app or a recovery code for <strong>${email}</strong>.</p>
+        
+        ${error ? `<div class="error-banner">❌ ${error}</div>` : ''}
+
+        <form action="/login/mfa" method="POST">
+            <input type="hidden" name="mfa_token" value="${mfa_token}"/>
+            <input type="hidden" name="client_id" value="${clientId}"/>
+            <input type="hidden" name="redirect_uri" value="${redirectUri}"/>
+            <input type="hidden" name="state" value="${state}"/>
+            <input type="hidden" name="code_challenge" value="${codeChallenge}"/>
+            <input type="hidden" name="code_challenge_method" value="${codeChallengeMethod}"/>
+
+            <div class="form-group">
+                <label>6-Digit TOTP / Recovery Code</label>
+                <input type="text" name="mfa_code" placeholder="123456" required autofocus autocomplete="off"/>
+            </div>
+
+            <button type="submit">Verify & Sign In</button>
+        </form>
+    </div>
+</body>
+</html>`;
 }
 
 function renderLoginPage(props: {
@@ -145,7 +210,7 @@ function renderLoginPage(props: {
 </html>`;
 }
 
-// GET /login
+// get login
 router.get('/', async (req: any, res: Response) => {
     const prisma = req.prisma;
     const clientId = (req.query.client_id || '') as string;
@@ -183,7 +248,7 @@ router.get('/', async (req: any, res: Response) => {
     res.send(renderLoginPage({ clientId, redirectUri, state, codeChallenge, codeChallengeMethod }));
 });
 
-// POST /login
+// post login
 router.post('/',async(req: any,res: Response)=>{
     const prisma=req.prisma;
     const{email,password,client_id='',redirect_uri='',state='',code_challenge='',code_challenge_method=''}=req.body;
@@ -243,7 +308,29 @@ router.post('/',async(req: any,res: Response)=>{
             }));
         }
 
-        // Create Central Session
+        // check user mfa
+        if (user.mfa_enabled) {
+            const mfaToken = crypto.randomBytes(32).toString('hex');
+            const mfaExpiresAt = new Date(Date.now() + 5 * 60 * 1000);
+            await prisma.mfaPendingSession.create({
+                data: {
+                    user_id: user.id,
+                    token: mfaToken,
+                    expires_at: mfaExpiresAt,
+                },
+            });
+            return res.send(renderMfaChallengePage({
+                mfa_token: mfaToken,
+                email: user.email,
+                clientId: client_id,
+                redirectUri: redirect_uri,
+                state,
+                codeChallenge: code_challenge,
+                codeChallengeMethod: code_challenge_method,
+            }));
+        }
+
+        // create central session
         const rawSessionToken = crypto.randomBytes(32).toString('hex');
         const session_token_hash = hashSessionToken(rawSessionToken);
         const expires_at = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -282,7 +369,7 @@ router.post('/',async(req: any,res: Response)=>{
             path: '/',
         });
 
-        // If client_id and redirect_uri were provided, forward to authorize endpoint
+        // redirect authorize if requested
         if(client_id&&redirect_uri){
             const cc=code_challenge?`&code_challenge=${encodeURIComponent(code_challenge)}`:'';
             const ccm=code_challenge_method?`&code_challenge_method=${encodeURIComponent(code_challenge_method)}`:'';
@@ -290,7 +377,6 @@ router.post('/',async(req: any,res: Response)=>{
             return res.redirect(302,authUrl);
         }
 
-        // Otherwise show central session status page
         res.redirect('/login');
     } catch (error: any) {
         res.status(500).send(renderLoginPage({
@@ -300,6 +386,151 @@ router.post('/',async(req: any,res: Response)=>{
             redirectUri: redirect_uri,
             state,
         }));
+    }
+});
+
+// post login mfa
+router.post('/mfa', async (req: any, res: Response) => {
+    const prisma = req.prisma;
+    const { mfa_token, mfa_code, client_id, redirect_uri, state, code_challenge, code_challenge_method } = req.body;
+
+    if (!mfa_token || !mfa_code) {
+        return res.status(400).send('MFA token and verification code are required');
+    }
+
+    try {
+        const pendingSession = await prisma.mfaPendingSession.findFirst({
+            where: { token: mfa_token, expires_at: { gt: new Date() } },
+            include: { user: true },
+        });
+
+        if (!pendingSession || !pendingSession.user) {
+            return res.status(401).send(renderLoginPage({
+                error: 'MFA session expired or invalid. Please log in again.',
+                clientId: client_id,
+                redirectUri: redirect_uri,
+                state,
+            }));
+        }
+
+        const user = pendingSession.user;
+        const codeInput = String(mfa_code).trim();
+        let isValid = false;
+        let isRecoveryCodeUsed = false;
+
+        if (codeInput.length === 6 && user.mfa_secret) {
+            isValid = verifyTotp(codeInput, user.mfa_secret);
+        }
+
+        if (!isValid && user.mfa_recovery_codes) {
+            try {
+                const hashedInput = crypto.createHash('sha256').update(codeInput).digest('hex');
+                const recoveryCodes: string[] = JSON.parse(user.mfa_recovery_codes);
+                const codeIndex = recoveryCodes.indexOf(hashedInput);
+
+                if (codeIndex !== -1) {
+                    isValid = true;
+                    isRecoveryCodeUsed = true;
+                    recoveryCodes.splice(codeIndex, 1);
+                    await prisma.user.update({
+                        where: { id: user.id },
+                        data: { mfa_recovery_codes: JSON.stringify(recoveryCodes) },
+                    });
+                }
+            } catch (e) {}
+        }
+
+        if (!isValid) {
+            try {
+                await prisma.auditLog.create({
+                    data: {
+                        event_type: 'mfa_failed',
+                        actor_id: user.id,
+                        user_id: user.id,
+                        result: 'denied',
+                        metadata: JSON.stringify({ email: user.email, reason: 'Invalid TOTP or recovery code' }),
+                        ip_address: (req.ip || req.headers['x-forwarded-for'] || null) as string | null,
+                    },
+                });
+            } catch (e) {}
+
+            return res.status(401).send(renderMfaChallengePage({
+                mfa_token,
+                email: user.email,
+                error: 'Invalid 6-digit TOTP code or recovery code.',
+                clientId: client_id,
+                redirectUri: redirect_uri,
+                state,
+                codeChallenge: code_challenge,
+                codeChallengeMethod: code_challenge_method,
+            }));
+        }
+
+        // delete pending session
+        await prisma.mfaPendingSession.delete({ where: { id: pendingSession.id } });
+
+        try {
+            await prisma.auditLog.create({
+                data: {
+                    event_type: 'mfa_success',
+                    actor_id: user.id,
+                    user_id: user.id,
+                    result: 'success',
+                    metadata: JSON.stringify({ email: user.email, method: isRecoveryCodeUsed ? 'recovery_code' : 'totp' }),
+                    ip_address: (req.ip || req.headers['x-forwarded-for'] || null) as string | null,
+                },
+            });
+        } catch (e) {}
+
+        // Create Central Session
+        const rawSessionToken = crypto.randomBytes(32).toString('hex');
+        const session_token_hash = hashSessionToken(rawSessionToken);
+        const expires_at = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        const ip_address = (req.ip || req.headers['x-forwarded-for'] || null) as string | null;
+        const user_agent = (req.headers['user-agent'] || null) as string | null;
+
+        await prisma.ssoSession.create({
+            data: {
+                user_id: user.id,
+                session_token_hash,
+                status: 'active',
+                expires_at,
+                ip_address,
+                user_agent,
+            },
+        });
+
+        try {
+            await prisma.auditLog.create({
+                data: {
+                    event_type: 'login_success',
+                    actor_id: user.id,
+                    user_id: user.id,
+                    result: 'success',
+                    metadata: JSON.stringify({ email: user.email, name: user.name, mfa_verified: true }),
+                    ip_address: (req.ip || req.headers['x-forwarded-for'] || null) as string | null,
+                },
+            });
+        } catch (e) {}
+
+        res.cookie('sso_session', rawSessionToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 24 * 60 * 60 * 1000,
+            path: '/',
+        });
+
+        if (client_id && redirect_uri) {
+            const cc = code_challenge ? `&code_challenge=${encodeURIComponent(code_challenge)}` : '';
+            const ccm = code_challenge_method ? `&code_challenge_method=${encodeURIComponent(code_challenge_method)}` : '';
+            const authUrl = `/api/auth/authorize?client_id=${encodeURIComponent(client_id)}&redirect_uri=${encodeURIComponent(redirect_uri)}&state=${encodeURIComponent(state)}${cc}${ccm}`;
+            return res.redirect(302, authUrl);
+        }
+
+        res.redirect('/login');
+    } catch (error: any) {
+        res.status(500).send('MFA verification error: ' + error.message);
     }
 });
 

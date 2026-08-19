@@ -1,13 +1,14 @@
 import express, { Request, Response } from 'express';
 import crypto from 'crypto';
 import { verifyPassword } from '../utils/hash';
+import { verifyTotp } from '../utils/totp';
 const router = express.Router();
 
 function hashSessionToken(token: string): string {
     return crypto.createHash('sha256').update(token).digest('hex');
 }
 
-// POST /api/auth/login
+// post login
 router.post('/login', async (req: any, res: Response) => {
     const prisma = req.prisma;
     const { email, password } = req.body;
@@ -23,9 +24,28 @@ router.post('/login', async (req: any, res: Response) => {
         if (!isPasswordValid) {
             return res.status(401).json({ success: false, error: 'Invalid email or password' });
         }
+
+        if (user.mfa_enabled) {
+            const mfaToken = crypto.randomBytes(32).toString('hex');
+            const mfaExpiresAt = new Date(Date.now() + 5 * 60 * 1000);
+            await prisma.mfaPendingSession.create({
+                data: {
+                    user_id: user.id,
+                    token: mfaToken,
+                    expires_at: mfaExpiresAt,
+                },
+            });
+            return res.json({
+                success: false,
+                mfa_required: true,
+                mfa_token: mfaToken,
+                message: 'Multi-factor authentication code required',
+            });
+        }
+
         const rawSessionToken = crypto.randomBytes(32).toString('hex');
         const session_token_hash = hashSessionToken(rawSessionToken);
-        const expires_at = new Date(Date.now() + 24 * 60 * 60 * 1000); // expired dalam 24 Jam
+        const expires_at = new Date(Date.now() + 24 * 60 * 60 * 1000);
         const ip_address = (req.ip || req.headers['x-forwarded-for'] || null) as string | null;
         const user_agent = (req.headers['user-agent'] || null) as string | null;
         await prisma.ssoSession.create({
@@ -59,7 +79,115 @@ router.post('/login', async (req: any, res: Response) => {
     }
 });
 
-// GET /api/auth/me
+// post login mfa
+router.post('/login/mfa', async (req: any, res: Response) => {
+    const prisma = req.prisma;
+    const { mfa_token, mfa_code } = req.body;
+    if (!mfa_token || !mfa_code) {
+        return res.status(400).json({ success: false, error: 'mfa_token and mfa_code are required' });
+    }
+    try {
+        const pendingSession = await prisma.mfaPendingSession.findFirst({
+            where: { token: mfa_token, expires_at: { gt: new Date() } },
+            include: { user: true },
+        });
+        if (!pendingSession || !pendingSession.user) {
+            return res.status(401).json({ success: false, error: 'MFA session expired or invalid' });
+        }
+        const user = pendingSession.user;
+        const codeInput = String(mfa_code).trim();
+        let isValid = false;
+        let isRecoveryCodeUsed = false;
+
+        if (codeInput.length === 6 && user.mfa_secret) {
+            isValid = verifyTotp(codeInput, user.mfa_secret);
+        }
+
+        if (!isValid && user.mfa_recovery_codes) {
+            try {
+                const hashedInput = crypto.createHash('sha256').update(codeInput).digest('hex');
+                const recoveryCodes: string[] = JSON.parse(user.mfa_recovery_codes);
+                const codeIndex = recoveryCodes.indexOf(hashedInput);
+                if (codeIndex !== -1) {
+                    isValid = true;
+                    isRecoveryCodeUsed = true;
+                    recoveryCodes.splice(codeIndex, 1);
+                    await prisma.user.update({
+                        where: { id: user.id },
+                        data: { mfa_recovery_codes: JSON.stringify(recoveryCodes) },
+                    });
+                }
+            } catch (e) {}
+        }
+
+        if (!isValid) {
+            try {
+                await prisma.auditLog.create({
+                    data: {
+                        event_type: 'mfa_failed',
+                        actor_id: user.id,
+                        user_id: user.id,
+                        result: 'denied',
+                        metadata: JSON.stringify({ email: user.email, reason: 'Invalid TOTP or recovery code' }),
+                        ip_address: (req.ip || req.headers['x-forwarded-for'] || null) as string | null,
+                    },
+                });
+            } catch (e) {}
+            return res.status(401).json({ success: false, error: 'Invalid MFA TOTP or recovery code' });
+        }
+
+        await prisma.mfaPendingSession.delete({ where: { id: pendingSession.id } });
+
+        try {
+            await prisma.auditLog.create({
+                data: {
+                    event_type: 'mfa_success',
+                    actor_id: user.id,
+                    user_id: user.id,
+                    result: 'success',
+                    metadata: JSON.stringify({ email: user.email, method: isRecoveryCodeUsed ? 'recovery_code' : 'totp' }),
+                    ip_address: (req.ip || req.headers['x-forwarded-for'] || null) as string | null,
+                },
+            });
+        } catch (e) {}
+
+        const rawSessionToken = crypto.randomBytes(32).toString('hex');
+        const session_token_hash = hashSessionToken(rawSessionToken);
+        const expires_at = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        const ip_address = (req.ip || req.headers['x-forwarded-for'] || null) as string | null;
+        const user_agent = (req.headers['user-agent'] || null) as string | null;
+        await prisma.ssoSession.create({
+            data: {
+                user_id: user.id,
+                session_token_hash,
+                status: 'active',
+                expires_at,
+                ip_address,
+                user_agent,
+            },
+        });
+        res.cookie('sso_session', rawSessionToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 24 * 60 * 60 * 1000,
+            path: '/',
+        });
+        res.json({
+            success: true,
+            message: 'MFA verified and login successful',
+            data: {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+            },
+        });
+    } catch (error: any) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// get me
 router.get('/me', async (req: any, res: Response) => {
     const prisma = req.prisma;
     const rawSessionToken = req.cookies?.sso_session;
@@ -98,7 +226,7 @@ router.get('/me', async (req: any, res: Response) => {
     }
 });
 
-// GET /api/auth/authorize
+// authorize oauth
 router.get('/authorize', async (req: any, res: Response) => {
     const prisma = req.prisma;
     const { client_id, redirect_uri, state, code_challenge, code_challenge_method } = req.query;
@@ -223,7 +351,7 @@ router.get('/authorize', async (req: any, res: Response) => {
     }
 });
 
-// POST /api/auth/token
+// token oauth
 router.post('/token', async (req: any, res: Response) => {
     const prisma = req.prisma;
     const { grant_type, code, client_id, redirect_uri, code_verifier } = req.body;
@@ -246,7 +374,7 @@ router.post('/token', async (req: any, res: Response) => {
             return res.status(400).json({ success: false, error: 'Authorization code has expired' });
         }
         
-        // PKCE Validation
+        // pkce check
         if (authCode.code_challenge) {
             if (!code_verifier) {
                 return res.status(400).json({ success: false, error: 'code_verifier is required' });
@@ -261,12 +389,12 @@ router.post('/token', async (req: any, res: Response) => {
             }
         }
 
-        // Check central session validity
+        // session check
         if (!authCode.sso_session || authCode.sso_session.status !== 'active' || authCode.sso_session.expires_at < new Date()) {
             return res.status(400).json({ success: false, error: 'Central session is no longer active' });
         }
 
-        // Atomic check and update for used_at
+        // consume code
         const updatedAuthCode = await prisma.authorizationCode.updateMany({
             where: {
                 id: authCode.id,
@@ -292,7 +420,7 @@ router.post('/token', async (req: any, res: Response) => {
         }
         const rawAccessToken = crypto.randomBytes(32).toString('hex');
         const token_hash = crypto.createHash('sha256').update(rawAccessToken).digest('hex');
-        const expires_at = new Date(Date.now() + 60 * 60 * 1000); // access token 1 jam
+        const expires_at = new Date(Date.now() + 60 * 60 * 1000);
         await prisma.accessToken.create({
             data: {
                 token_hash,
@@ -324,7 +452,7 @@ router.post('/token', async (req: any, res: Response) => {
     }
 });
 
-// GET /api/auth/userinfo
+// userinfo endpoint
 router.get('/userinfo', async (req: any, res: Response) => {
     const prisma = req.prisma;
     const authHeader = req.headers.authorization;
@@ -374,7 +502,7 @@ router.get('/userinfo', async (req: any, res: Response) => {
     }
 });
 
-// ALL /api/auth/logout
+// logout session
 router.all('/logout', async (req: any, res: Response) => {
     const prisma = req.prisma;
     const rawSessionToken = req.cookies?.sso_session;

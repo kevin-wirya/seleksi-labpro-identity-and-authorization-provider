@@ -2,7 +2,7 @@ import crypto from 'crypto';
 
 const BASE32_ALPHABET='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 
-// Encode buffer to Base32 string
+// encode base32
 export function base32Encode(buffer: Buffer): string {
     let bits=0;
     let value=0;
@@ -21,7 +21,7 @@ export function base32Encode(buffer: Buffer): string {
     return output;
 }
 
-// Decode Base32 string to Buffer
+// decode base32
 export function base32Decode(base32: string): Buffer {
     const cleaned=base32.toUpperCase().replace(/=+$/,'').replace(/[^A-Z2-7]/g,'');
     let bits=0;
@@ -40,22 +40,21 @@ export function base32Decode(base32: string): Buffer {
     return Buffer.from(bytes);
 }
 
-// Generate secret for TOTP (20 bytes -> 32 char base32 string)
+// generate totp secret
 export function generateTotpSecret(): string {
     const buf=crypto.randomBytes(20);
     return base32Encode(buf);
 }
 
-// Generate OTPAuth URI (Google Authenticator format)
+// get otpauth uri
 export function getTotpAuthUrl(email: string, secret: string, issuer='SSO Provider'): string {
     return `otpauth://totp/${encodeURIComponent(issuer)}:${encodeURIComponent(email)}?secret=${secret}&issuer=${encodeURIComponent(issuer)}&algorithm=SHA1&digits=6&period=30`;
 }
 
-// Compute 6-digit TOTP token for given time step counter T
+// compute totp token
 export function computeTotp(secretBase32: string, counter: number): string {
     const key=base32Decode(secretBase32);
     const buf=Buffer.alloc(8);
-    // Write 64-bit integer counter in Big Endian
     let temp=counter;
     for(let i=7;i>=0;i--){
         buf[i]=temp & 0xff;
@@ -68,7 +67,7 @@ export function computeTotp(secretBase32: string, counter: number): string {
     return otp.toString().padStart(6,'0');
 }
 
-// Verify TOTP token with time window tolerance
+// verify totp token
 export function verifyTotp(token: string, secretBase32: string, window=1): boolean {
     if(!token||token.length!==6) return false;
     const nowInSeconds=Math.floor(Date.now()/1000);
@@ -83,13 +82,13 @@ export function verifyTotp(token: string, secretBase32: string, window=1): boole
     return false;
 }
 
-// Generate recovery codes (8 codes of 10 random hex characters)
+// generate recovery codes
 export function generateRecoveryCodes(count=8): { plainCodes: string[]; hashedCodes: string[] } {
     const plainCodes: string[]=[];
     const hashedCodes: string[]=[];
 
     for(let i=0;i<count;i++){
-        const code=crypto.randomBytes(5).toString('hex'); // 10 chars
+        const code=crypto.randomBytes(5).toString('hex');
         const hash=crypto.createHash('sha256').update(code).digest('hex');
         plainCodes.push(code);
         hashedCodes.push(hash);

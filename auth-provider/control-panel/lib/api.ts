@@ -194,3 +194,22 @@ export async function deletePolicy(applicationId: string,policyId: string): Prom
     if(!json.success)throw new Error(json.error||'Failed to delete policy');
     return json;
 }
+
+export interface AuditLogItem{
+    id: string;
+    event_type: string;
+    actor_id?: string;
+    user_id?: string;
+    application_id?: string;
+    result: string;
+    metadata?: string;
+    ip_address?: string;
+    created_at: string;
+}
+
+export async function getAuditLogs(): Promise<AuditLogItem[]>{
+    const res=await fetch(`${getBaseUrl()}/api/admin/audit-logs`,{cache:'no-store'});
+    const json=await res.json();
+    if(!json.success)throw new Error(json.error||'Failed to fetch audit logs');
+    return json.data;
+}

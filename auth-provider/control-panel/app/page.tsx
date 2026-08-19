@@ -1,6 +1,6 @@
 'use client';
 import {useState,useEffect} from 'react';
-import {getUsers,createUser,updateUserStatus,toggleUserMfa,getGroups,createGroup,assignUserToGroup,removeUserFromGroup,getApplications,createApplication,addRedirectUri,deleteRedirectUri,createPolicy,deletePolicy,User,Group,Application} from '../lib/api';
+import {getUsers,createUser,updateUserStatus,toggleUserMfa,getGroups,createGroup,assignUserToGroup,removeUserFromGroup,getApplications,createApplication,addRedirectUri,deleteRedirectUri,createPolicy,deletePolicy,getAuditLogs,User,Group,Application,AuditLogItem} from '../lib/api';
 
 const IconShield=()=>(<svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>);
 const IconBarChart=()=>(<svg className="w-4 h-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>);
@@ -16,11 +16,17 @@ const IconLink=()=>(<svg className="w-4 h-4 text-emerald-400" fill="none" viewBo
 const IconPulse=()=>(<svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>);
 const IconExternal=()=>(<svg className="w-4 h-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>);
 
+function formatDateGMT7(dateInput: Date | string){
+    if(!dateInput)return '-';
+    return new Date(dateInput).toLocaleString('en-GB',{timeZone:'Asia/Jakarta'})+' GMT+7';
+}
+
 export default function Home(){
-    const[activeTab,setActiveTab]=useState<'users'|'groups'|'apps'|'policies'>('users');
+    const[activeTab,setActiveTab]=useState<'users'|'groups'|'apps'|'policies'|'logs'>('users');
     const[users,setUsers]=useState<User[]>([]);
     const[groups,setGroups]=useState<Group[]>([]);
     const[applications,setApplications]=useState<Application[]>([]);
+    const[auditLogs,setAuditLogs]=useState<AuditLogItem[]>([]);
     const[loading,setLoading]=useState<boolean>(true);
     const[error,setError]=useState<string>('');
     const[success,setSuccess]=useState<string>('');
@@ -63,10 +69,11 @@ export default function Home(){
         setLoading(true);
         setError('');
         try{
-            const[userData,groupData,appData]=await Promise.all([getUsers(),getGroups(),getApplications()]);
+            const[userData,groupData,appData,logData]=await Promise.all([getUsers(),getGroups(),getApplications(),getAuditLogs()]);
             setUsers(userData);
             setGroups(groupData);
             setApplications(appData);
+            setAuditLogs(logData);
             if(userData.length>0)setAssignUserId(userData[0].id);
             if(groupData.length>0){
                 setAssignGroupId(groupData[0].id);
@@ -284,6 +291,9 @@ export default function Home(){
                     </button>
                     <button onClick={()=>setActiveTab('policies')} className={`px-4 py-2 font-medium text-sm border-b-2 transition flex items-center gap-2 ${activeTab==='policies'?'border-sky-400 text-sky-400':'border-transparent text-zinc-400 hover:text-zinc-200'}`}>
                         <IconPolicy/> Access Policies
+                    </button>
+                    <button onClick={()=>setActiveTab('logs')} className={`px-4 py-2 font-medium text-sm border-b-2 transition flex items-center gap-2 ${activeTab==='logs'?'border-sky-400 text-sky-400':'border-transparent text-zinc-400 hover:text-zinc-200'}`}>
+                        <IconPulse/> Activity Audit Logs
                     </button>
                 </div>
 
@@ -658,6 +668,52 @@ export default function Home(){
                                     </tbody>
                                 </table>
                             </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* TAB 5: AUDIT LOGS */}
+                {activeTab==='logs'&&(
+                    <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl shadow-lg">
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                                <IconPulse/> Central Security Audit Logs
+                            </h2>
+                            <button onClick={loadData} className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-xs font-medium text-zinc-300 rounded-lg flex items-center gap-1.5 transition">
+                                <IconRefresh/> Refresh Logs
+                            </button>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-sm text-zinc-300">
+                                <thead className="bg-zinc-950 text-zinc-400 text-xs uppercase font-semibold">
+                                    <tr>
+                                        <th className="p-3">Time (GMT+7)</th>
+                                        <th className="p-3">Event Type</th>
+                                        <th className="p-3">Actor / User</th>
+                                        <th className="p-3">Result</th>
+                                        <th className="p-3">Metadata</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-zinc-800/80">
+                                    {loading?(
+                                        <tr><td colSpan={5} className="p-4 text-center text-zinc-500">Loading audit logs...</td></tr>
+                                    ):auditLogs.length===0?(
+                                        <tr><td colSpan={5} className="p-4 text-center text-zinc-500">No audit logs recorded yet.</td></tr>
+                                    ):auditLogs.map((log)=>(
+                                        <tr key={log.id} className="hover:bg-zinc-800/50">
+                                            <td className="p-3 text-zinc-400 text-xs font-mono whitespace-nowrap">{formatDateGMT7(log.created_at)}</td>
+                                            <td className="p-3 font-semibold text-sky-400 font-mono">{log.event_type}</td>
+                                            <td className="p-3 text-xs text-zinc-300 font-mono">{log.user_id||log.actor_id||'-'}</td>
+                                            <td className="p-3">
+                                                <span className={`text-xs px-2.5 py-1 rounded-full font-bold uppercase ${log.result==='success'||log.result==='granted'?'bg-emerald-950 text-emerald-400 border border-emerald-500/30':'bg-red-950 text-red-400 border border-red-500/30'}`}>
+                                                    {log.result}
+                                                </span>
+                                            </td>
+                                            <td className="p-3 text-xs font-mono text-zinc-400 max-w-md truncate">{log.metadata||'-'}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 )}

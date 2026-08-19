@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import { hashPassword } from '../utils/hash';
+import { generateTotpSecret, generateRecoveryCodes } from '../utils/totp';
 const router=express.Router();
 
 // GET /api/admin/users
@@ -116,17 +117,46 @@ router.patch('/:id/status',async(req: any,res: Response)=>{
     }
 });
 
-// PATCH /api/admin/users/:id/mfa
+// toggle user mfa
 router.patch('/:id/mfa',async(req: any,res: Response)=>{
     const prisma=req.prisma;
     const{id}=req.params;
     const{mfa_enabled}=req.body;
     try{
+        const user=await prisma.user.findUnique({where:{id}});
+        if(!user) return res.status(404).json({success:false,error:'User not found'});
+
+        let targetSecret=user.mfa_secret;
+        let recoveryCodes=user.mfa_recovery_codes;
+
+        if(mfa_enabled&&!targetSecret){
+            targetSecret=generateTotpSecret();
+            const{hashedCodes}=generateRecoveryCodes();
+            recoveryCodes=JSON.stringify(hashedCodes);
+        }
+
         const updatedUser=await prisma.user.update({
             where:{id},
-            data:{mfa_enabled:Boolean(mfa_enabled)},
-            select:{id:true,name:true,email:true,status:true,mfa_enabled:true},
+            data:{
+                mfa_enabled:Boolean(mfa_enabled),
+                mfa_secret:targetSecret,
+                mfa_recovery_codes:recoveryCodes,
+            },
+            select:{id:true,name:true,email:true,status:true,mfa_enabled:true,mfa_secret:true},
         });
+
+        try{
+            await prisma.auditLog.create({
+                data:{
+                    event_type:mfa_enabled?'mfa_enrolled':'mfa_disabled',
+                    actor_id:'admin',
+                    user_id:id,
+                    result:'success',
+                    metadata:JSON.stringify({email:user.email}),
+                },
+            });
+        }catch(e){}
+
         res.json({success:true,data:updatedUser});
     }catch(error: any){
         res.status(500).json({success:false,error:error.message});

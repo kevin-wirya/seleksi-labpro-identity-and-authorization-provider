@@ -3,7 +3,7 @@ import{generateTotpSecret,getTotpAuthUrl,verifyTotp,computeTotp,generateRecovery
 
 const router=express.Router();
 
-// POST /api/auth/mfa/setup
+// setup mfa
 router.post('/setup',async(req: any,res: Response)=>{
     const prisma=req.prisma;
     const{email}=req.body;
@@ -33,7 +33,7 @@ router.post('/setup',async(req: any,res: Response)=>{
     }
 });
 
-// POST /api/auth/mfa/verify
+// verify mfa token
 router.post('/verify',async(req: any,res: Response)=>{
     const{token,secret}=req.body;
     if(!token||!secret){
@@ -46,7 +46,7 @@ router.post('/verify',async(req: any,res: Response)=>{
     res.status(400).json({success:false,error:'Invalid TOTP token or expired window'});
 });
 
-// POST /api/auth/mfa/enable
+// enable mfa user
 router.post('/enable',async(req: any,res: Response)=>{
     const prisma=req.prisma;
     const{email,token,secret}=req.body;
@@ -73,13 +73,26 @@ router.post('/enable',async(req: any,res: Response)=>{
             },
         });
 
+        try{
+            await prisma.auditLog.create({
+                data:{
+                    event_type:'mfa_enrolled',
+                    actor_id:user.id,
+                    user_id:user.id,
+                    result:'success',
+                    metadata:JSON.stringify({email:user.email}),
+                    ip_address:(req.ip||req.headers['x-forwarded-for']||null) as string|null,
+                },
+            });
+        }catch(e){}
+
         res.json({success:true,message:'MFA enabled successfully'});
     }catch(error: any){
         res.status(500).json({success:false,error:error.message});
     }
 });
 
-// POST /api/auth/mfa/disable
+// disable mfa user
 router.post('/disable',async(req: any,res: Response)=>{
     const prisma=req.prisma;
     const{email}=req.body;
@@ -87,17 +100,83 @@ router.post('/disable',async(req: any,res: Response)=>{
         return res.status(400).json({success:false,error:'Email is required'});
     }
     try{
+        const user=await prisma.user.findUnique({where:{email}});
         await prisma.user.update({
             where:{email},
             data:{mfa_enabled:false},
         });
+
+        if(user){
+            try{
+                await prisma.auditLog.create({
+                    data:{
+                        event_type:'mfa_disabled',
+                        actor_id:user.id,
+                        user_id:user.id,
+                        result:'success',
+                        metadata:JSON.stringify({email:user.email}),
+                        ip_address:(req.ip||req.headers['x-forwarded-for']||null) as string|null,
+                    },
+                });
+            }catch(e){}
+        }
+
         res.json({success:true,message:'MFA disabled successfully'});
     }catch(error: any){
         res.status(500).json({success:false,error:error.message});
     }
 });
 
-// GET /api/auth/mfa/ui or /mfa-ui
+// generate recovery codes for user
+router.post('/generate-recovery-codes',async(req: any,res: Response)=>{
+    const prisma=req.prisma;
+    const{email}=req.body;
+    if(!email) return res.status(400).json({success:false,error:'Email required'});
+    try{
+        const user=await prisma.user.findUnique({where:{email:String(email)}});
+        if(!user) return res.status(404).json({success:false,error:'User not found'});
+        const{plainCodes,hashedCodes}=generateRecoveryCodes();
+        await prisma.user.update({
+            where:{email:String(email)},
+            data:{mfa_recovery_codes:JSON.stringify(hashedCodes)},
+        });
+        res.json({success:true,email:user.email,recovery_codes:plainCodes});
+    }catch(e: any){
+        res.status(500).json({success:false,error:e.message});
+    }
+});
+
+// get user totp secret
+router.get('/user-secret',async(req: any,res: Response)=>{
+    const prisma=req.prisma;
+    const{email}=req.query;
+    if(!email) return res.status(400).json({success:false,error:'Email required'});
+    try{
+        let user=await prisma.user.findUnique({where:{email:String(email)}});
+        if(!user) return res.status(404).json({success:false,error:'User not found'});
+        if(!user.mfa_secret){
+            const secret=generateTotpSecret();
+            const{hashedCodes}=generateRecoveryCodes();
+            user=await prisma.user.update({
+                where:{email:String(email)},
+                data:{mfa_secret:secret,mfa_recovery_codes:JSON.stringify(hashedCodes)},
+            });
+        }
+        const currentCounter=Math.floor(Date.now()/30000);
+        const code=computeTotp(user.mfa_secret!,currentCounter);
+        res.json({
+            success:true,
+            email:user.email,
+            secret:user.mfa_secret,
+            code,
+            mfa_enabled:user.mfa_enabled,
+        });
+    }catch(e: any){
+        res.status(500).json({success:false,error:e.message});
+    }
+});
+
+// mfa ui portal
 router.get('/ui',(req: Request,res: Response)=>{
     const sampleSecret=generateTotpSecret();
     const currentCounter=Math.floor(Date.now()/30000);
@@ -144,7 +223,7 @@ router.get('/ui',(req: Request,res: Response)=>{
                     <svg style="width:26px;height:26px;color:#fbbf24;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
                 </div>
                 <div>
-                    <div class="title">MFA / 2FA TOTP Portal</div>
+                    <div class="title">MFA TOTP Portal</div>
                     <div class="subtitle">Multi-Factor Authentication Setup & Live Verification Portal</div>
                 </div>
             </div>
@@ -152,65 +231,87 @@ router.get('/ui',(req: Request,res: Response)=>{
 
         <div class="grid">
             <div class="card">
-                <div class="card-title">🔐 TOTP Secret Generator & Simulator</div>
+                <div class="card-title">👤 User Live TOTP Code Lookup</div>
                 <div class="form-group">
-                    <label>Base32 Secret Key</label>
-                    <input type="text" id="gen_secret" value="${sampleSecret}" readonly>
+                    <label>User Email</label>
+                    <input type="email" id="lookup_email" value="heihachi@example.com" placeholder="user@example.com">
                 </div>
-                <div class="code-display">
-                    <div style="font-size:11px;color:#a1a1aa;margin-bottom:4px;">CURRENT 6-DIGIT CODE</div>
-                    <div class="code-val" id="current_code">${sampleCode}</div>
-                    <div class="secret-val" id="timer_text">Refreshes in 30s</div>
+                <button style="margin-bottom:14px;" onclick="lookupUserSecret()">Get Live Code for User</button>
+                <div class="code-display" id="user_code_display">
+                    <div style="font-size:11px;color:#a1a1aa;margin-bottom:4px;">LIVE USER TOTP CODE</div>
+                    <div class="code-val" id="user_current_code">------</div>
+                    <div class="secret-val" id="user_secret_val">Click button above to load</div>
+                    <div style="font-size:12px;color:#fbbf24;margin-top:10px;font-weight:700;" id="timer_box">⏳ Refreshes in 30s</div>
                 </div>
-                <button style="margin-top:16px;background:#3b82f6;" onclick="regenerateSecret()">Generate New Secret</button>
             </div>
 
             <div class="card">
-                <div class="card-title">✅ Test TOTP Verification</div>
-                <div class="form-group">
-                    <label>Base32 Secret</label>
-                    <input type="text" id="verify_secret" value="${sampleSecret}">
+                <div class="card-title">🔑 Single-Use Recovery Codes</div>
+                <p style="font-size:12px;color:#a1a1aa;margin-bottom:14px;line-height:1.4;">Recovery Code digunakan saat tidak membawa authenticator app. Setiap kode hanya bisa digunakan 1 kali.</p>
+                <button style="background:#3b82f6;margin-bottom:14px;" onclick="fetchRecoveryCodes()">Generate 8 Recovery Codes</button>
+                <div id="recovery_list" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;background:#060907;padding:12px;border-radius:10px;border:1px solid rgba(59,130,246,0.3);min-height:90px;">
+                    <div style="grid-column:1/-1;font-size:12px;color:#a1a1aa;text-align:center;padding:20px 0;">Klik tombol di atas untuk membuat 8 kode pemulihan baru</div>
                 </div>
-                <div class="form-group">
-                    <label>6-Digit TOTP Code</label>
-                    <input type="text" id="verify_token" placeholder="e.g. ${sampleCode}" maxlength="6">
-                </div>
-                <button onclick="testVerify()">Verify Code</button>
-                <div id="verify_alert" class="alert"></div>
             </div>
         </div>
     </div>
 
     <script>
-        let secret='${sampleSecret}';
-        async function testVerify(){
-            const sec=document.getElementById('verify_secret').value;
-            const tok=document.getElementById('verify_token').value;
-            const alertBox=document.getElementById('verify_alert');
+        async function lookupUserSecret(){
+            const email=document.getElementById('lookup_email').value;
+            const codeVal=document.getElementById('user_current_code');
+            const secretVal=document.getElementById('user_secret_val');
             try{
-                const res=await fetch('/api/auth/mfa/verify',{
-                    method:'POST',
-                    headers:{'Content-Type':'application/json'},
-                    body:JSON.stringify({secret:sec,token:tok})
-                });
+                const res=await fetch('/api/auth/mfa/user-secret?email='+encodeURIComponent(email));
                 const data=await res.json();
-                alertBox.style.display='block';
                 if(data.success){
-                    alertBox.className='alert alert-success';
-                    alertBox.innerText='✅ TOTP Verification Successful!';
+                    codeVal.innerText=data.code;
+                    secretVal.innerHTML='MFA Active: '+(data.mfa_enabled?'YES':'NO');
                 }else{
-                    alertBox.className='alert alert-error';
-                    alertBox.innerText='❌ '+data.error;
+                    codeVal.innerText='ERROR';
+                    secretVal.innerText=data.error;
                 }
             }catch(e){
-                alertBox.style.display='block';
-                alertBox.className='alert alert-error';
-                alertBox.innerText='❌ Server connection failed';
+                codeVal.innerText='ERROR';
+                secretVal.innerText='Failed to load user secret';
             }
         }
-        function regenerateSecret(){
-            location.reload();
+
+        async function fetchRecoveryCodes(){
+            const email=document.getElementById('lookup_email').value;
+            const list=document.getElementById('recovery_list');
+            list.innerHTML='<div style="grid-column:1/-1;font-size:12px;color:#a1a1aa;text-align:center;padding:20px 0;">Generating codes...</div>';
+            try{
+                const res=await fetch('/api/auth/mfa/generate-recovery-codes',{
+                    method:'POST',
+                    headers:{'Content-Type':'application/json'},
+                    body:JSON.stringify({email})
+                });
+                const data=await res.json();
+                if(data.success&&data.recovery_codes){
+                    list.innerHTML=data.recovery_codes.map(c=>'<div style="font-family:monospace;font-size:13px;color:#60a5fa;background:rgba(59,130,246,0.1);padding:6px;border-radius:6px;text-align:center;font-weight:700;border:1px solid rgba(59,130,246,0.2);">'+c+'</div>').join('');
+                }else{
+                    list.innerHTML='<div style="grid-column:1/-1;color:#fca5a5;font-size:12px;text-align:center;">'+(data.error||'Failed to generate')+'</div>';
+                }
+            }catch(e){
+                list.innerHTML='<div style="grid-column:1/-1;color:#fca5a5;font-size:12px;text-align:center;">Error connecting to server</div>';
+            }
         }
+
+        function updateTimer(){
+            const now=Math.floor(Date.now()/1000);
+            const remaining=30-(now%30);
+            const t1=document.getElementById('timer_box');
+            if(t1) t1.innerText='⏳ Refreshes in '+remaining+'s';
+            if(remaining===30){
+                lookupUserSecret();
+            }
+        }
+
+        window.onload=()=>{
+            lookupUserSecret();
+            setInterval(updateTimer,1000);
+        };
     </script>
 </body>
 </html>`;
