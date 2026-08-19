@@ -8,6 +8,7 @@ import cookieParser from 'cookie-parser';
 import amqp from 'amqplib';
 
 import authRoute from './routes/auth';
+import loginRoute from './routes/login';
 import usersRoute from './routes/users';
 import groupsRoute from './routes/groups';
 import applicationsRoute from './routes/applications';
@@ -22,6 +23,7 @@ const prisma = new PrismaClient({ adapter });
 
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use((req: any, res: Response, next: NextFunction) => {
     req.prisma = prisma;
@@ -40,6 +42,7 @@ app.use((req: any, res: Response, next: NextFunction) => {
     next();
 });
 
+app.use('/login', loginRoute);
 app.use('/api/auth', authRoute);
 app.use('/api/admin/users', usersRoute);
 app.use('/api/admin/groups', groupsRoute);

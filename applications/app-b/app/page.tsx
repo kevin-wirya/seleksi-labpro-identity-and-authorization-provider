@@ -105,6 +105,7 @@ export default async function Home(){
                                 <p><span className="text-zinc-500">Status:</span> <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded text-xs font-bold uppercase">{localSession.status}</span></p>
                                 <p className="truncate"><span className="text-zinc-500">Session ID:</span> <span className="font-mono text-xs text-zinc-400">{localSession.id}</span></p>
                                 <p><span className="text-zinc-500">Created:</span> <span className="text-zinc-300">{new Date(localSession.created_at).toLocaleString()}</span></p>
+                                <p><span className="text-zinc-500">Expires:</span> <span className="text-zinc-300">{new Date(localSession.expires_at).toLocaleString()}</span></p>
                             </div>
                         </div>
                     </div>
