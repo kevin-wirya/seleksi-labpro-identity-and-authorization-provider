@@ -191,27 +191,27 @@ router.get('/ui',(req: Request,res: Response)=>{
     <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700;900&display=swap" rel="stylesheet">
     <style>
         *{box-sizing:border-box;margin:0;padding:0;font-family:'Lato',sans-serif;}
-        body{background-color:#060907;color:#f4f4f5;min-height:100vh;padding:32px 24px;background-image:radial-gradient(circle at 50% 20%,rgba(16,185,129,0.12) 0%,transparent 60%);}
+        body{background-color:#0b0a06;color:#f4f4f5;min-height:100vh;padding:32px 24px;background-image:radial-gradient(circle at 50% 20%,rgba(245,158,11,0.15) 0%,transparent 60%);}
         .container{max-width:900px;margin:0 auto;}
-        .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:32px;padding-bottom:20px;border-bottom:1px solid rgba(16,185,129,0.2);}
+        .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:32px;padding-bottom:20px;border-bottom:1px solid rgba(245,158,11,0.25);}
         .title-box{display:flex;align-items:center;gap:14px;}
         .icon-box{width:48px;height:48px;background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.3);border-radius:14px;display:flex;align-items:center;justify-content:center;}
         .title{font-size:24px;font-weight:900;color:#ffffff;}
         .subtitle{font-size:13px;color:#a1a1aa;margin-top:2px;}
         .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:24px;}
-        .card{background:#0f1712;border:1px solid rgba(16,185,129,0.2);border-radius:20px;padding:24px;box-shadow:0 20px 40px -15px rgba(0,0,0,0.7);backdrop-filter:blur(16px);}
-        .card-title{font-size:14px;color:#34d399;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+        .card{background:#14110b;border:1px solid rgba(245,158,11,0.25);border-radius:20px;padding:24px;box-shadow:0 20px 40px -15px rgba(0,0,0,0.7);backdrop-filter:blur(16px);}
+        .card-title{font-size:14px;color:#fbbf24;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:16px;display:flex;align-items:center;gap:8px;}
         .form-group{margin-bottom:16px;}
         label{display:block;font-size:12px;font-weight:700;color:#a1a1aa;margin-bottom:6px;text-transform:uppercase;}
-        input[type="text"],input[type="email"]{width:100%;background:#060907;border:1px solid rgba(16,185,129,0.3);border-radius:10px;padding:12px;color:#ffffff;font-size:14px;outline:none;}
-        input:focus{border-color:#34d399;}
-        button{width:100%;background:#059669;color:#ffffff;font-weight:700;padding:12px;border:none;border-radius:10px;cursor:pointer;transition:all 0.2s;font-size:14px;}
-        button:hover{background:#10b981;}
-        .code-display{background:#060907;border:1px solid rgba(245,158,11,0.4);border-radius:12px;padding:16px;text-align:center;margin-top:12px;}
+        input[type="text"],input[type="email"]{width:100%;background:#060503;border:1px solid rgba(245,158,11,0.3);border-radius:10px;padding:12px;color:#ffffff;font-size:14px;outline:none;}
+        input:focus{border-color:#fbbf24;}
+        button{width:100%;background:#d97706;color:#ffffff;font-weight:700;padding:12px;border:none;border-radius:10px;cursor:pointer;transition:all 0.2s;font-size:14px;}
+        button:hover{background:#f59e0b;}
+        .code-display{background:#060503;border:1px solid rgba(245,158,11,0.4);border-radius:12px;padding:16px;text-align:center;margin-top:12px;}
         .code-val{font-family:monospace;font-size:32px;font-weight:900;color:#fbbf24;letter-spacing:6px;}
         .secret-val{font-family:monospace;font-size:13px;color:#a1a1aa;word-break:break-all;margin-top:6px;}
         .alert{padding:12px;border-radius:10px;font-size:13px;margin-top:12px;display:none;}
-        .alert-success{background:rgba(16,185,129,0.15);color:#34d399;border:1px solid rgba(16,185,129,0.3);}
+        .alert-success{background:rgba(245,158,11,0.15);color:#fbbf24;border:1px solid rgba(245,158,11,0.3);}
         .alert-error{background:rgba(239,68,68,0.15);color:#fca5a5;border:1px solid rgba(239,68,68,0.3);}
     </style>
 </head>
