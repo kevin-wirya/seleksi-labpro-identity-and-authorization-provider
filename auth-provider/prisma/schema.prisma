@@ -149,6 +149,8 @@ model AuthorizationCode{
   application_id String
   sso_session_id String
   redirect_uri String
+  code_challenge String?
+  code_challenge_method String?
   created_at DateTime @default(now())
   expires_at DateTime
   used_at DateTime?

@@ -101,13 +101,15 @@ router.get('/me', async (req: any, res: Response) => {
 // GET /api/auth/authorize
 router.get('/authorize', async (req: any, res: Response) => {
     const prisma = req.prisma;
-    const { client_id, redirect_uri, state } = req.query;
+    const { client_id, redirect_uri, state, code_challenge, code_challenge_method } = req.query;
     if (!client_id || !redirect_uri || !state) {
         return res.status(400).json({ success: false, error: 'client_id, redirect_uri, and state are required' });
     }
     const clientIdStr = String(client_id);
     const redirectUriStr = String(redirect_uri);
     const stateStr = String(state);
+    const codeChallengeStr = code_challenge ? String(code_challenge) : null;
+    const codeChallengeMethodStr = code_challenge_method ? String(code_challenge_method) : null;
 
     try {
         const app = await prisma.application.findUnique({
@@ -192,6 +194,8 @@ router.get('/authorize', async (req: any, res: Response) => {
                 application_id: app.id,
                 sso_session_id: session.id,
                 redirect_uri: redirectUriStr,
+                code_challenge: codeChallengeStr,
+                code_challenge_method: codeChallengeMethodStr,
                 expires_at,
             }
         });
@@ -218,7 +222,7 @@ router.get('/authorize', async (req: any, res: Response) => {
 // POST /api/auth/token
 router.post('/token', async (req: any, res: Response) => {
     const prisma = req.prisma;
-    const { grant_type, code, client_id, redirect_uri } = req.body;
+    const { grant_type, code, client_id, redirect_uri, code_verifier } = req.body;
     if (grant_type !== 'authorization_code' || !code || !client_id || !redirect_uri) {
         return res.status(400).json({ success: false, error: 'grant_type must be authorization_code, and code, client_id, redirect_uri are required' });
     }
@@ -226,7 +230,7 @@ router.post('/token', async (req: any, res: Response) => {
         const code_hash = crypto.createHash('sha256').update(code).digest('hex');
         const authCode = await prisma.authorizationCode.findFirst({
             where: { code_hash },
-            include: { application: true },
+            include: { application: true, sso_session: true },
         });
         if (!authCode || authCode.application.client_id !== client_id) {
             return res.status(400).json({ success: false, error: 'Invalid authorization code or client_id' });
@@ -237,7 +241,37 @@ router.post('/token', async (req: any, res: Response) => {
         if (authCode.expires_at < new Date()) {
             return res.status(400).json({ success: false, error: 'Authorization code has expired' });
         }
-        if (authCode.used_at) {
+        
+        // PKCE Validation
+        if (authCode.code_challenge) {
+            if (!code_verifier) {
+                return res.status(400).json({ success: false, error: 'code_verifier is required' });
+            }
+            if (authCode.code_challenge_method === 'S256') {
+                const expectedChallenge = crypto.createHash('sha256').update(code_verifier).digest('base64url');
+                if (expectedChallenge !== authCode.code_challenge) {
+                    return res.status(400).json({ success: false, error: 'Invalid code_verifier' });
+                }
+            } else if (code_verifier !== authCode.code_challenge) {
+                return res.status(400).json({ success: false, error: 'Invalid code_verifier' });
+            }
+        }
+
+        // Check central session validity
+        if (!authCode.sso_session || authCode.sso_session.status !== 'active' || authCode.sso_session.expires_at < new Date()) {
+            return res.status(400).json({ success: false, error: 'Central session is no longer active' });
+        }
+
+        // Atomic check and update for used_at
+        const updatedAuthCode = await prisma.authorizationCode.updateMany({
+            where: {
+                id: authCode.id,
+                used_at: null,
+            },
+            data: { used_at: new Date() },
+        });
+
+        if (updatedAuthCode.count === 0) {
             await prisma.auditLog.create({
                 data: {
                     event_type: 'code_replay_attempt',
@@ -252,10 +286,6 @@ router.post('/token', async (req: any, res: Response) => {
             });
             return res.status(400).json({ success: false, error: 'Authorization code already used' });
         }
-        await prisma.authorizationCode.update({
-            where: { id: authCode.id },
-            data: { used_at: new Date() },
-        });
         const rawAccessToken = crypto.randomBytes(32).toString('hex');
         const token_hash = crypto.createHash('sha256').update(rawAccessToken).digest('hex');
         const expires_at = new Date(Date.now() + 60 * 60 * 1000); // access token 1 jam

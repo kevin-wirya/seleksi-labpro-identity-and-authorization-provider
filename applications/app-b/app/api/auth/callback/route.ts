@@ -9,6 +9,7 @@ export async function GET(request:NextRequest){
     const error=searchParams.get('error');
     const errorDescription=searchParams.get('error_description');
     const savedState=request.cookies.get('oauth_state')?.value;
+    const codeVerifier=request.cookies.get('oauth_verifier')?.value;
 
     if(!state||!savedState||state!==savedState){
         try{
@@ -62,6 +63,7 @@ export async function GET(request:NextRequest){
                 code,
                 client_id:'app-b',
                 redirect_uri:'http://localhost:3002/api/auth/callback',
+                code_verifier:codeVerifier,
             }),
         });
     }catch(e){
@@ -73,6 +75,7 @@ export async function GET(request:NextRequest){
                 code,
                 client_id:'app-b',
                 redirect_uri:'http://localhost:3002/api/auth/callback',
+                code_verifier:codeVerifier,
             }),
         });
     }
