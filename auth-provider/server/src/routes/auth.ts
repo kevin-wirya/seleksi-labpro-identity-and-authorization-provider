@@ -359,6 +359,7 @@ router.get('/userinfo', async (req: any, res: Response) => {
         const groups = user.user_groups.map((ug: any) => ug.group.name);
         res.json({
             sub: user.id,
+            session_id: tokenRecord.sso_session_id,
             name: user.name,
             email: user.email,
             status: user.status,

@@ -41,32 +41,46 @@ async function startWorker(){
                         targetUrls.unshift(webhookUrl.replace('localhost:3002', 'app-b:3002'));
                     }
 
-                    for (const targetUrl of targetUrls) {
-                        try{
-                            const res=await fetch(targetUrl,{
-                                method:'POST',
-                                headers:{'Content-Type':'application/json'},
-                                body:JSON.stringify({
-                                    event_id:eventData.id,
-                                    event_type:eventData.event_type,
-                                    user_id:eventData.user_id,
-                                    central_session_id:eventData.central_session_id,
-                                    payload:eventData.payload,
-                                    timestamp:eventData.created_at,
-                                }),
-                            });
-                            if(res.ok){
-                                isSuccess=true;
-                                console.log(`✅ Webhook delivered to ${app.name} at ${targetUrl} (${res.status})`);
-                                break;
-                            }else{
-                                errorMsg=`HTTP ${res.status}`;
-                                console.warn(`⚠️ Webhook to ${app.name} at ${targetUrl} returned status ${res.status}`);
+                    const MAX_RETRIES = 3;
+                    let attemptCount = 0;
+
+                    for(const targetUrl of targetUrls){
+                        let localSuccess=false;
+                        for(let attempt=1; attempt<=MAX_RETRIES; attempt++){
+                            attemptCount = attempt;
+                            try{
+                                const res=await fetch(targetUrl,{
+                                    method:'POST',
+                                    headers:{'Content-Type':'application/json'},
+                                    body:JSON.stringify({
+                                        event_id:eventData.id,
+                                        event_type:eventData.event_type,
+                                        user_id:eventData.user_id,
+                                        central_session_id:eventData.central_session_id,
+                                        payload:eventData.payload,
+                                        timestamp:eventData.created_at,
+                                    }),
+                                });
+                                if(res.ok){
+                                    localSuccess=true;
+                                    isSuccess=true;
+                                    console.log(`✅ Webhook delivered to ${app.name} at ${targetUrl} (${res.status}) on attempt ${attempt}`);
+                                    break; // success, no need to retry or try next url
+                                }else{
+                                    errorMsg=`HTTP ${res.status}`;
+                                    console.warn(`⚠️ Webhook to ${app.name} at ${targetUrl} returned status ${res.status} (attempt ${attempt}/${MAX_RETRIES})`);
+                                }
+                            }catch(err: any){
+                                errorMsg=err.message;
+                                console.error(`❌ Webhook to ${app.name} at ${targetUrl} failed: ${err.message} (attempt ${attempt}/${MAX_RETRIES})`);
                             }
-                        }catch(err: any){
-                            errorMsg=err.message;
-                            console.error(`❌ Webhook to ${app.name} at ${targetUrl} failed:`,err.message);
+                            if(!localSuccess && attempt < MAX_RETRIES){
+                                const delay = Math.pow(2, attempt) * 1000; // Exponential backoff: 2s, 4s, 8s
+                                console.log(`⏳ Waiting ${delay}ms before next retry for ${app.name}...`);
+                                await new Promise(resolve => setTimeout(resolve, delay));
+                            }
                         }
+                        if(localSuccess) break; // if one URL succeeded, we don't need to try the fallback URLs
                     }
 
                     if (!isSuccess) {
@@ -78,7 +92,7 @@ async function startWorker(){
                             event_id:eventData.id,
                             application_id:app.id,
                             status:isSuccess?'succeeded':'failed',
-                            attempt_count:1,
+                            attempt_count:attemptCount,
                             last_attempt_at:new Date(),
                             last_error:isSuccess?null:errorMsg,
                         },

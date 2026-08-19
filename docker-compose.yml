@@ -64,6 +64,18 @@ services:
       auth-provider:
         condition: service_started
 
+  db-seeder:
+    image: auth-provider-app
+    container_name: db_seeder
+    command: npx ts-node prisma/seed.ts
+    environment:
+      DATABASE_URL: postgresql://admin:secret@db:5432/sso_db?schema=public
+    depends_on:
+      db:
+        condition: service_healthy
+      auth-provider:
+        condition: service_started
+
   sync-worker:
     image: auth-provider-app
     container_name: sync_worker

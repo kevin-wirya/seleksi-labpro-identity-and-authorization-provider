@@ -166,7 +166,7 @@ export async function GET(request:NextRequest){
         data:{
             session_token_hash,
             external_user_id:userinfo.sub,
-            central_session_id:userinfo.sub,
+            central_session_id:userinfo.session_id||userinfo.sub,
             application_id:appRecord?appRecord.id:'app-a',
             status:'active',
             expires_at,
