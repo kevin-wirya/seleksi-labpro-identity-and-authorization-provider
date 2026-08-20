@@ -10,6 +10,7 @@ import amqp from 'amqplib';
 import { config } from './config/env';
 import { metricsMiddleware } from './middlewares/metricsMiddleware';
 import { errorHandler } from './middlewares/errorHandler';
+import { adminMiddleware } from './middlewares/adminMiddleware';
 
 import authRoute from './routes/auth';
 import loginRoute from './routes/login';
@@ -38,23 +39,27 @@ app.use((req: any, _res: Response, next: NextFunction) => {
 app.use(metricsMiddleware);
 
 // API Routes
-app.use('/login', loginRoute);
-app.use('/api/auth', authRoute);
-app.use('/api/admin/users', usersRoute);
-app.use('/api/admin/groups', groupsRoute);
-app.use('/api/admin/applications', applicationsRoute);
-app.use('/api/admin/metrics', metricsRoute);
-app.use('/api/auth/mfa', mfaRoute);
+app.use('/login',loginRoute);
+app.use('/api/auth',authRoute);
+app.use('/api/admin/users',adminMiddleware,usersRoute);
+app.use('/api/admin/groups',adminMiddleware,groupsRoute);
+app.use('/api/admin/applications',adminMiddleware,applicationsRoute);
+app.use('/api/admin/metrics',metricsRoute);
+app.use('/api/auth/mfa',mfaRoute);
 
-app.get('/api/admin/audit-logs', async (req: any, res: Response) => {
-    try {
-        const logs = await req.prisma.auditLog.findMany({
-            orderBy: { created_at: 'desc' },
-            take: 100,
+app.get('/api/admin/me',adminMiddleware,(req: any,res: Response)=>{
+    res.json({success:true,user:req.authUser});
+});
+
+app.get('/api/admin/audit-logs',adminMiddleware,async(req: any,res: Response)=>{
+    try{
+        const logs=await req.prisma.auditLog.findMany({
+            orderBy:{created_at:'desc'},
+            take:100,
         });
-        res.json({ success: true, data: logs });
-    } catch (e: any) {
-        res.status(500).json({ success: false, error: e.message });
+        res.json({success:true,data:logs});
+    }catch(e: any){
+        res.status(500).json({success:false,error:e.message});
     }
 });
 

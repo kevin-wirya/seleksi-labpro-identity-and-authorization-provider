@@ -57,8 +57,15 @@ export interface Application{
     group_policies?: GroupPolicy[];
 }
 
+export async function getAdminSession(): Promise<User>{
+    const res=await fetch(`${getBaseUrl()}/api/admin/me`,{cache:'no-store',credentials:'include'});
+    const json=await res.json();
+    if(!json.success)throw new Error(json.error||'Unauthorized');
+    return json.user;
+}
+
 export async function getUsers(): Promise<User[]>{
-    const res=await fetch(`${getBaseUrl()}/api/admin/users`,{cache:'no-store'});
+    const res=await fetch(`${getBaseUrl()}/api/admin/users`,{cache:'no-store',credentials:'include'});
     const json=await res.json();
     if(!json.success)throw new Error(json.error||'Failed to fetch users');
     return json.data;
@@ -68,6 +75,7 @@ export async function createUser(payload:{name: string; email: string; password:
     const res=await fetch(`${getBaseUrl()}/api/admin/users`,{
         method:'POST',
         headers:{'Content-Type':'application/json'},
+        credentials:'include',
         body:JSON.stringify(payload),
     });
     const json=await res.json();
@@ -79,6 +87,7 @@ export async function updateUser(userId: string,data:{name?:string;email?:string
     const res=await fetch(`${getBaseUrl()}/api/admin/users/${userId}`,{
         method:'PUT',
         headers:{'Content-Type':'application/json'},
+        credentials:'include',
         body:JSON.stringify(data),
     });
     const json=await res.json();
@@ -90,6 +99,7 @@ export async function updateUserStatus(userId: string,status: 'active' | 'inacti
     const res=await fetch(`${getBaseUrl()}/api/admin/users/${userId}/status`,{
         method:'PATCH',
         headers:{'Content-Type':'application/json'},
+        credentials:'include',
         body:JSON.stringify({status}),
     });
     const json=await res.json();
@@ -101,6 +111,7 @@ export async function toggleUserMfa(userId: string,mfa_enabled: boolean): Promis
     const res=await fetch(`${getBaseUrl()}/api/admin/users/${userId}/mfa`,{
         method:'PATCH',
         headers:{'Content-Type':'application/json'},
+        credentials:'include',
         body:JSON.stringify({mfa_enabled}),
     });
     const json=await res.json();
@@ -109,7 +120,7 @@ export async function toggleUserMfa(userId: string,mfa_enabled: boolean): Promis
 }
 
 export async function getGroups(): Promise<Group[]>{
-    const res=await fetch(`${getBaseUrl()}/api/admin/groups`,{cache:'no-store'});
+    const res=await fetch(`${getBaseUrl()}/api/admin/groups`,{cache:'no-store',credentials:'include'});
     const json=await res.json();
     if(!json.success)throw new Error(json.error||'Failed to fetch groups');
     return json.data;
@@ -119,6 +130,7 @@ export async function createGroup(payload:{name: string; description?: string}):
     const res=await fetch(`${getBaseUrl()}/api/admin/groups`,{
         method:'POST',
         headers:{'Content-Type':'application/json'},
+        credentials:'include',
         body:JSON.stringify(payload),
     });
     const json=await res.json();
@@ -130,6 +142,7 @@ export async function assignUserToGroup(payload:{user_id: string; group_id: stri
     const res=await fetch(`${getBaseUrl()}/api/admin/groups/assign`,{
         method:'POST',
         headers:{'Content-Type':'application/json'},
+        credentials:'include',
         body:JSON.stringify(payload),
     });
     const json=await res.json();
@@ -141,6 +154,7 @@ export async function removeUserFromGroup(payload:{user_id: string; group_id: st
     const res=await fetch(`${getBaseUrl()}/api/admin/groups/assign`,{
         method:'DELETE',
         headers:{'Content-Type':'application/json'},
+        credentials:'include',
         body:JSON.stringify(payload),
     });
     const json=await res.json();
@@ -149,7 +163,7 @@ export async function removeUserFromGroup(payload:{user_id: string; group_id: st
 }
 
 export async function getApplications(): Promise<Application[]>{
-    const res=await fetch(`${getBaseUrl()}/api/admin/applications`,{cache:'no-store'});
+    const res=await fetch(`${getBaseUrl()}/api/admin/applications`,{cache:'no-store',credentials:'include'});
     const json=await res.json();
     if(!json.success)throw new Error(json.error||'Failed to fetch applications');
     return json.data;
@@ -159,6 +173,7 @@ export async function createApplication(payload:{name: string; client_id: string
     const res=await fetch(`${getBaseUrl()}/api/admin/applications`,{
         method:'POST',
         headers:{'Content-Type':'application/json'},
+        credentials:'include',
         body:JSON.stringify(payload),
     });
     const json=await res.json();
@@ -170,6 +185,7 @@ export async function addRedirectUri(applicationId: string,redirect_uri: string)
     const res=await fetch(`${getBaseUrl()}/api/admin/applications/${applicationId}/redirect-uris`,{
         method:'POST',
         headers:{'Content-Type':'application/json'},
+        credentials:'include',
         body:JSON.stringify({redirect_uri}),
     });
     const json=await res.json();
@@ -180,6 +196,7 @@ export async function addRedirectUri(applicationId: string,redirect_uri: string)
 export async function deleteRedirectUri(applicationId: string,uriId: string): Promise<any>{
     const res=await fetch(`${getBaseUrl()}/api/admin/applications/${applicationId}/redirect-uris/${uriId}`,{
         method:'DELETE',
+        credentials:'include',
     });
     const json=await res.json();
     if(!json.success)throw new Error(json.error||'Failed to delete redirect URI');
@@ -190,6 +207,7 @@ export async function createPolicy(applicationId: string,payload:{group_id: stri
     const res=await fetch(`${getBaseUrl()}/api/admin/applications/${applicationId}/policies`,{
         method:'POST',
         headers:{'Content-Type':'application/json'},
+        credentials:'include',
         body:JSON.stringify(payload),
     });
     const json=await res.json();
@@ -200,6 +218,7 @@ export async function createPolicy(applicationId: string,payload:{group_id: stri
 export async function deletePolicy(applicationId: string,policyId: string): Promise<any>{
     const res=await fetch(`${getBaseUrl()}/api/admin/applications/${applicationId}/policies/${policyId}`,{
         method:'DELETE',
+        credentials:'include',
     });
     const json=await res.json();
     if(!json.success)throw new Error(json.error||'Failed to delete policy');
@@ -219,7 +238,7 @@ export interface AuditLogItem{
 }
 
 export async function getAuditLogs(): Promise<AuditLogItem[]>{
-    const res=await fetch(`${getBaseUrl()}/api/admin/audit-logs`,{cache:'no-store'});
+    const res=await fetch(`${getBaseUrl()}/api/admin/audit-logs`,{cache:'no-store',credentials:'include'});
     const json=await res.json();
     if(!json.success)throw new Error(json.error||'Failed to fetch audit logs');
     return json.data;

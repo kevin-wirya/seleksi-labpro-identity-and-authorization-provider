@@ -1,6 +1,6 @@
 'use client';
 import {useState,useEffect} from 'react';
-import {getUsers,createUser,updateUser,updateUserStatus,toggleUserMfa,getGroups,createGroup,assignUserToGroup,removeUserFromGroup,getApplications,createApplication,addRedirectUri,deleteRedirectUri,createPolicy,deletePolicy,getAuditLogs,User,Group,Application,AuditLogItem} from '../lib/api';
+import {getUsers,createUser,updateUser,updateUserStatus,toggleUserMfa,getGroups,createGroup,assignUserToGroup,removeUserFromGroup,getApplications,createApplication,addRedirectUri,deleteRedirectUri,createPolicy,deletePolicy,getAuditLogs,getAdminSession,User,Group,Application,AuditLogItem} from '../lib/api';
 
 const IconShield=()=>(<svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>);
 const IconBarChart=()=>(<svg className="w-4 h-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>);
@@ -23,6 +23,7 @@ function formatDateGMT7(dateInput: Date | string){
 
 export default function Home(){
     const[activeTab,setActiveTab]=useState<'users'|'groups'|'apps'|'policies'|'logs'>('users');
+    const[currentUser,setCurrentUser]=useState<User|null>(null);
     const[users,setUsers]=useState<User[]>([]);
     const[groups,setGroups]=useState<Group[]>([]);
     const[applications,setApplications]=useState<Application[]>([]);
@@ -71,6 +72,8 @@ export default function Home(){
         setLoading(true);
         setError('');
         try{
+            const userSession=await getAdminSession();
+            setCurrentUser(userSession);
             const[userData,groupData,appData,logData]=await Promise.all([getUsers(),getGroups(),getApplications(),getAuditLogs()]);
             setUsers(userData);
             setGroups(groupData);
@@ -266,6 +269,37 @@ export default function Home(){
     const startLogIdx=(currentLogPage-1)*auditLogLimit;
     const paginatedLogs=auditLogs.slice(startLogIdx,startLogIdx+auditLogLimit);
 
+    if(!loading&&(error.includes('Authentication required')||error.includes('Forbidden')||error.includes('Unauthorized')||!currentUser)){
+        return (
+            <div className="min-h-screen bg-black text-slate-100 flex items-center justify-center p-6">
+                <div className="max-w-md w-full bg-zinc-900 border border-zinc-800 p-8 rounded-2xl shadow-2xl text-center space-y-6">
+                    <div className="w-16 h-16 bg-red-950/80 border border-red-500/40 rounded-full flex items-center justify-center mx-auto text-red-400">
+                        <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                    </div>
+                    <div>
+                        <h1 className="text-xl font-bold text-white mb-2">403 Access Denied</h1>
+                        <p className="text-zinc-400 text-sm leading-relaxed">
+                            {error||'Control Panel requires an active SSO session with administrators group membership.'}
+                        </p>
+                        {currentUser&&(
+                            <p className="text-xs text-amber-400 mt-3 font-medium bg-amber-950/40 p-2 rounded border border-amber-500/20">
+                                Logged in as: <strong>{currentUser.email}</strong> (Not in administrators group)
+                            </p>
+                        )}
+                    </div>
+                    <div className="pt-2 flex flex-col gap-3">
+                        <a href="http://localhost:4000/login" className="w-full bg-sky-600 hover:bg-sky-500 text-white font-medium text-sm py-2.5 rounded-lg transition inline-block text-center">
+                            Login with SSO
+                        </a>
+                        <button onClick={loadData} className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-medium text-xs py-2 rounded-lg transition">
+                            Retry Check
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-black text-slate-100 p-6">
             <div className="max-w-7xl mx-auto">
@@ -274,8 +308,9 @@ export default function Home(){
                         <h1 className="text-3xl font-bold text-white flex items-center gap-3">
                             <IconShield/> SSO Admin Control Panel
                         </h1>
-                        <p className="text-zinc-400 text-sm mt-1">
-                            Central Identity Management and Access Control
+                        <p className="text-zinc-400 text-sm mt-1 flex items-center gap-2">
+                            <span>Central Identity Management</span>
+                            {currentUser&&<span className="bg-emerald-950/80 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded text-xs font-mono">🟢 Admin: {currentUser.email}</span>}
                         </p>
                     </div>
                     <div className="flex flex-wrap gap-2.5 mt-4 md:mt-0">
