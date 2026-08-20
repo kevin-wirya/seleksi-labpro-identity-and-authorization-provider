@@ -41,7 +41,7 @@ npx prisma db seed
 
 | Komponen | URL / Port | Keterangan |
 | :--- | :--- | :--- |
-| **Control Panel Admin (Next.js)** | `http://localhost:3000` | Admin Management Portal (Users, Password Edit, Groups, Apps, Audit Logs + Pagination) |
+| **Control Panel Admin (Next.js)** | `http://localhost:3000` | Admin Management Portal (Terproteksi Otorisasi SSO Grup `administrators`) |
 | **Auth Provider Server API** | `http://localhost:4000` | Core SSO API & Authorization Server |
 | **App A (Relying Application 1)** | `http://localhost:3001` | Client Web Application A |
 | **App B (Relying Application 2)** | `http://localhost:3002` | Client Web Application B |
@@ -163,12 +163,13 @@ src/
 | `POST` | `/api/auth/token` | OAuth 2.0 Token Exchange Endpoint | Client App |
 | `GET` | `/api/auth/userinfo` | OIDC UserInfo Endpoint | Bearer Token |
 | `ALL` | `/api/auth/logout` | Central SSO Logout (Trigger Outbox Revocation) | SSO Cookie |
-| `PUT` | `/api/admin/users/:id` | Edit User Details & Change Password (Hard Revocation) | Admin |
-| `GET` | `/api/admin/audit-logs` | Fetch Activity Security Audit Logs (Paginated UI) | Admin |
+| `PUT` | `/api/admin/users/:id` | Edit User Details & Change Password (Hard Revocation) | SSO Cookie + Grup `administrators` |
+| `GET` | `/api/admin/me` | Check Admin Session & Group Membership | SSO Cookie + Grup `administrators` |
+| `GET` | `/api/admin/audit-logs` | Fetch Activity Security Audit Logs (Paginated UI) | SSO Cookie + Grup `administrators` |
 | `POST` | `/api/auth/mfa/setup` | Generate TOTP Base32 Secret & Recovery Codes | SSO Cookie |
 | `POST` | `/api/auth/mfa/enable` | Konfirmasi & Aktifkan MFA akun | SSO Cookie |
 | `POST` | `/api/auth/mfa/disable` | Nonaktifkan MFA akun | SSO Cookie |
-| `GET` | `/api/admin/metrics` | API Data Metrik Observability (RED & USE) | Admin |
+| `GET` | `/api/admin/metrics` | API Data Metrik Observability (RED & USE) | Publik / Admin |
 | `GET` | `/metrics-ui` | Web Dashboard Observability Real-Time | Publik |
 | `GET` | `/health/live` | Liveness Probe Endpoint | Publik |
 | `GET` | `/health/ready` | Readiness Probe Endpoint (DB & RabbitMQ Check) | Publik |
