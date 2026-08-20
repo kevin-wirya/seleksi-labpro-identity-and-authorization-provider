@@ -13,9 +13,7 @@ export interface CreateAuditLogDTO {
 
 export async function createAuditLog(prisma: PrismaClient,dto: CreateAuditLogDTO){
     try{
-        const metadataStr=typeof dto.metadata==='object'&&dto.metadata!==null
-            ?JSON.stringify(dto.metadata)
-            :dto.metadata||null;
+        const metadataStr=typeof dto.metadata==='string'?dto.metadata:(dto.metadata?JSON.stringify(dto.metadata):null);
 
         return await prisma.auditLog.create({
             data:{

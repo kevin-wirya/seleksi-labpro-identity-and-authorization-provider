@@ -29,7 +29,7 @@ docker compose up --build -d
 Setelah seluruh kontainer siap dan *healthy*, jalankan perintah seeding data (User awal `admin@sso.local` / `admin123` dan konfigurasi Client Applications):
 
 ```bash
-# Dari direktori auth-provider:
+# dari direktori auth-provider:
 cd auth-provider
 npx prisma db push
 npx prisma db seed
@@ -109,9 +109,9 @@ src/
 
 ### Alur Utama (Workflow):
 1. **Central Authentication & MFA Challenge**: User melakukan login di Auth Provider. Jika MFA aktif, server memberikan status `mfa_required` dan meminta 6-digit kode TOTP / Recovery Code sebelum cookie `sso_session` diterbitkan.
-2. **OAuth 2.0 Authorization Code Exchange**: Aplikasi Klien (App A / App B) mengarahkan user ke `/api/auth/authorize`. Setelah verifikasi, Auth Provider menerbitkan `authorization_code`. Klien menukar kode ini menjadi `access_token` melalui server-to-server request (`POST /api/auth/token`).
+2. **OAuth 2.0 Authorization Code Exchange**: Aplikasi Klien mengarahkan user ke `/api/auth/authorize`. Setelah verifikasi, Auth Provider menerbitkan `authorization_code`. Klien menukar kode ini menjadi `access_token` melalui server-to-server request (`POST /api/auth/token`).
 3. **Central Revocation & Outbox Relay**: Saat user me-logout atau admin mengubah password / status user di Admin Control Panel, status `SsoSession` diubah menjadi `revoked`. Event `PasswordChanged` / `SessionRevoked` dimasukkan ke tabel `events` secara atomik.
-4. **Asynchronous Event Sync**: Service `outbox-publisher` membaca event pending di DB lalu mengarahkan ke RabbitMQ Queue (`identity_events`). `sync-worker` mengonsumsi event tersebut dan mengosongkan sesi lokal di App A & App B via Webhook.
+4. **Asynchronous Event Sync**: Service `outbox-publisher` membaca event pending di DB lalu mengarahkan ke RabbitMQ Queue (`identity_events`). `sync-worker` mengonsumsi event tersebut dan mengosongkan sesi lokal di App A dan App B via Webhook.
 
 ---
 
@@ -175,64 +175,72 @@ src/
 
 ---
 
-## 🌟 Fitur Bonus & Peningkatan Tambahan yang Dikerjakan
+## 🌟 Fitur Bonus yang Dikerjakan
 
-### 1. 🔐 Bonus B01: Multi-Factor Authentication (MFA / TOTP)
+### 1. Bonus B01: Multi-Factor Authentication (MFA / TOTP)
 * Implementasi algoritma **RFC 6238 TOTP** murni (Google Authenticator / Authy) tanpa dependensi pihak ketiga.
 * Generasi 8 **One-Time Recovery Codes** ter-hash SHA-256.
 * Penanganan *short-lived pending session* (5 menit) pada alur login 2-step.
 * Pencatatan audit trail lengkap (`mfa_enrolled`, `mfa_success`, `mfa_failed`, `mfa_disabled`).
 
-### 2. 📊 Bonus B02: Real-Time Observability Dashboard
+### 2. Bonus B02: Real-Time Observability Dashboard
 * Pelacakan metrik **RED** (Request Rate, Error Rate 4xx/5xx, Average Latency dalam ms). Filter otomatis memisahkan polling internal dari metrik pengguna.
 * Pelacakan metrik **USE** (RabbitMQ Queue Depth, Dead Letter Queue Count, Sync Worker Active Status).
 * Dashboard UI modern dengan auto-refresh setiap 2 detik.
 
-### 3. 🏥 Bonus B03: Health Probes (Liveness & Readiness)
+### 3. Bonus B03: Health Probes (Liveness & Readiness)
 * Endpoint `/health/live` untuk memeriksa responsivitas Node.js event loop.
 * Endpoint `/health/ready` yang menguji konektivitas riil ke database PostgreSQL dan RabbitMQ broker (mengembalikan HTTP `503 Service Unavailable` jika dependensi *down*).
 
-### 4. 🛑 Bonus B04: Graceful Shutdown System
+### 4. Bonus B04: Graceful Shutdown System
 * Penanganan sinyal OS (`SIGTERM` / `SIGINT`).
 * Penghentian penerimaan request HTTP baru secara teratur (`server.close()`).
 * Penyelesaian request *in-flight*, penutupan koneksi Prisma Client PostgreSQL pool, dan pemutusan koneksi RabbitMQ Channel/Connection secara bersih tanpa kebocoran data.
-
-### 5. 🎛️ Admin Control Panel Enhancements & Paginated Audit Logs
-* Halaman Admin Control Panel (`http://localhost:3000`) dilengkapi fitur **Edit Password User** (dengan pencabutan sesi pusat & lokal *instant*).
-* Tabel **Activity Security Audit Logs** dilengkapi kontrol paginasi (`Previous`, `Next`, `Page Direct Input`) dan *limit selector* (10, 20, 50).
 
 ---
 
 ## 📸 Tangkapan Layar & Dokumentasi Sistem
 
-Berikut adalah tangkapan layar antarmuka sistem Identity Provider, SSO Flow, dan Fitur Bonus yang telah diimplementasikan:
+Berikut adalah tangkapan layar antarmuka sistem yang telah diimplementasikan:
 
-### 1. 📊 Real-Time Observability Dashboard (Bonus B02)
+### 1. 🎛️ Control Panel Admin
+*URL: `http://localhost:3000`*
+![Control Panel Admin](./docs/screenshot-control-panel-admin.png)
+
+### 2. 📊 Real-Time Observability Dashboard
 *URL: `http://localhost:4000/metrics-ui`*
 ![Observability Dashboard](./docs/screenshot-observability.png)
 
-### 2. 🔐 Multi-Factor Authentication (MFA / TOTP) Portal (Bonus B01)
+### 3. 🔐 Multi-Factor Authentication (MFA / TOTP) Portal
 *URL: `http://localhost:4000/api/auth/mfa-ui`*
 ![MFA / TOTP Portal](./docs/screenshot-mfa.png)
 
-### 3. 🌐 Relying Party App A (Single Sign-On Flow)
+### 4. 🔑 Central Session & Login SSO Flow
+* **Halaman Login Central SSO**:
+![Central Session Login](./docs/screenshot-central-session.png)
+
+* **Halaman Verification**:
+![Central Session Verification](./docs/screenshot-central-session-2.png)
+
+### 5. 🌐 Relying Party App A
 *URL: `http://localhost:3001`*
 
-* **Halaman Login SSO App A**:
-![App A Login](./docs/screenshot-app-a-1.png)
+* **App A - Halaman Belum Login**:
+![App A Before Login](./docs/screenshot-app-a.png)
 
-* **Halaman Profil Terautentikasi App A**:
-![App A Profile](./docs/screenshot-app-a-2.png)
+* **App A - Halaman Setelah Login**:
+![App A After Login](./docs/screenshot-app-a-after-login.png)
 
-### 4. 🌐 Relying Party App B (Single Sign-On Flow)
+### 6. 🌐 Relying Party App B
 *URL: `http://localhost:3002`*
 
-* **Halaman Login SSO App B**:
-![App B Login](./docs/screenshot-app-b-1.png)
+* **App B - Halaman Belum Login**:
+![App B Before Login](./docs/screenshot-app-b.png)
 
-* **Halaman Profil Terautentikasi App B**:
-![App B Profile](./docs/screenshot-app-b-2.png)
+* **App B - Halaman Terautentikasi**:
+![App B After Login](./docs/screenshot-app-b-after-login.png)
 
 ---
 
 *Dibuat untuk memenuhi Tugas Seleksi 2 Labpro 2026.*
+
